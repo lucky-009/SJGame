@@ -1,0 +1,163 @@
+/* 结算页样式 */
+
+.result-page {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #1a5c1a 0%, #0d330d 100%);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+}
+
+.result-container {
+  width: 100%;
+  max-width: 500px;
+  background-color: rgba(0, 0, 0, 0.5);
+  border-radius: 15px;
+  padding: 30px;
+  text-align: center;
+}
+
+.result-header {
+  margin-bottom: 30px;
+}
+
+.result-header h1 {
+  font-size: 36px;
+  margin: 0 0 10px 0;
+}
+
+.team-a-wins {
+  color: #ff6b6b;
+}
+
+.team-b-wins {
+  color: #4ecdc4;
+}
+
+.winner-announce {
+  color: #ffd700;
+  font-size: 24px;
+  font-weight: bold;
+  animation: glow 1s infinite alternate;
+}
+
+@keyframes glow {
+  from {
+    text-shadow: 0 0 10px #ffd700;
+  }
+  to {
+    text-shadow: 0 0 20px #ffd700, 0 0 30px #ffd700;
+  }
+}
+
+.result-content {
+  margin-bottom: 30px;
+}
+
+.level-changes {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30px;
+}
+
+.team-result {
+  flex: 1;
+  padding: 20px;
+  border-radius: 10px;
+}
+
+.team-result h3 {
+  margin: 0 0 10px 0;
+  color: #aaa;
+}
+
+.team-a {
+  background-color: rgba(255, 107, 107, 0.2);
+}
+
+.team-b {
+  background-color: rgba(78, 205, 196, 0.2);
+}
+
+.level-change {
+  font-size: 48px;
+  font-weight: bold;
+  color: #fff;
+}
+
+.team-a .level-change {
+  color: #ff6b6b;
+}
+
+.team-b .level-change {
+  color: #4ecdc4;
+}
+
+.vs {
+  color: #aaa;
+  font-size: 24px;
+  font-weight: bold;
+  padding: 0 20px;
+}
+
+.score-details {
+  background-color: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.score-details h3 {
+  color: #fff;
+  margin: 0 0 15px 0;
+}
+
+.scores {
+  display: flex;
+  justify-content: space-around;
+}
+
+.score-item {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.score-item span:first-child {
+  color: #aaa;
+  font-size: 14px;
+}
+
+.score-value {
+  color: #ffd700;
+  font-size: 32px;
+  font-weight: bold;
+}
+
+.bottom-bonus {
+  margin-top: 15px;
+  color: #ffd700;
+  font-size: 18px;
+}
+
+.game-reason {
+  color: #aaa;
+  font-size: 16px;
+  padding: 15px;
+  background-color: rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+}
+
+.reason {
+  color: #aaa;
+  font-size: 12px;
+  margin: 10px 0 0 0;
+}
+
+.result-actions {
+  display: flex;
+  justify-content: center;
+  gap: 15px;
+}

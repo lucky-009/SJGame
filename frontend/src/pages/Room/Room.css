@@ -1,0 +1,123 @@
+/* 房间页样式 */
+
+.room-page {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #1a5c1a 0%, #0d330d 100%);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+}
+
+.room-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px 20px;
+  background-color: rgba(0, 0, 0, 0.3);
+  border-radius: 10px;
+  margin-bottom: 20px;
+}
+
+.room-title h2 {
+  color: #ffd700;
+  margin: 0;
+  font-size: 24px;
+}
+
+.room-title {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.connection-status {
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.connection-status.connected {
+  color: #4ade80;
+}
+
+.connection-status.disconnected {
+  color: #f87171;
+}
+
+.room-id {
+  color: #666;
+  font-size: 12px;
+}
+
+.room-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.seats-container {
+  flex: 1;
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 2fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 20px;
+  padding: 20px;
+}
+
+.seat {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.seat-self {
+  grid-column: 2;
+  grid-row: 2;
+}
+
+.seat-opponent {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.seat-left {
+  grid-column: 1;
+  grid-row: 2;
+}
+
+.seat-right {
+  grid-column: 3;
+  grid-row: 2;
+}
+
+.error-message {
+  color: #ff6b6b;
+  font-size: 14px;
+  text-align: center;
+  padding: 10px;
+  background-color: rgba(255, 107, 107, 0.2);
+  border-radius: 8px;
+  margin: 10px 0;
+}
+
+.room-actions {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 20px;
+  padding: 20px;
+  background-color: rgba(0, 0, 0, 0.3);
+  border-radius: 10px;
+}
+
+.waiting-text {
+  color: #aaa;
+  font-size: 16px;
+}
+
+.waiting-start {
+  color: #666;
+  font-size: 14px;
+}

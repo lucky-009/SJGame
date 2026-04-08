@@ -1,0 +1,51 @@
+/* 倒计时组件样式 */
+
+.timer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 10px;
+  background-color: rgba(0, 0, 0, 0.7);
+  border-radius: 20px;
+}
+
+.timer-bar {
+  width: 80px;
+  height: 8px;
+  background-color: #333;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.timer-progress {
+  height: 100%;
+  background-color: #4ecdc4;
+  transition: width 1s linear, background-color 0.3s ease;
+}
+
+/* 时间不足5秒 */
+.timer.low-time .timer-progress {
+  background-color: #ff6b6b;
+  animation: blink 0.5s infinite;
+}
+
+@keyframes blink {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.timer-text {
+  color: #fff;
+  font-size: 14px;
+  font-weight: bold;
+  min-width: 25px;
+}
+
+.timer.low-time .timer-text {
+  color: #ff6b6b;
+  animation: blink 0.5s infinite;
+}

@@ -1,0 +1,176 @@
+/* 玩家信息组件样式 */
+
+.player-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 10px;
+  background-color: rgba(0, 0, 0, 0.5);
+  border-radius: 10px;
+  min-width: 100px;
+  position: relative;
+  transition: transform 0.3s ease;
+}
+
+/* 位置样式 */
+.player-info.position-self {
+  /* 自己 */
+}
+
+.player-info.position-left {
+  /* 上家 */
+}
+
+.player-info.position-right {
+  /* 下家 */
+}
+
+.player-info.position-opponent {
+  /* 对家 */
+}
+
+/* 轮到自己 */
+.player-info.turn {
+  box-shadow: 0 0 15px #ffd700;
+  animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    box-shadow: 0 0 10px #ffd700;
+  }
+  50% {
+    box-shadow: 0 0 20px #ffd700;
+  }
+}
+
+/* 同队颜色 */
+.player-info.my-team {
+  border: 2px solid #4a9eff;
+}
+
+/* 头像 */
+.player-avatar {
+  margin-bottom: 5px;
+}
+
+.avatar-circle {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background-color: #4a4a4a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  font-weight: bold;
+  color: #fff;
+  border: 3px solid #666;
+}
+
+.player-info.my-team .avatar-circle {
+  border-color: #4a9eff;
+}
+
+/* 玩家详情 */
+.player-details {
+  text-align: center;
+}
+
+.player-name {
+  color: #fff;
+  font-size: 14px;
+  font-weight: bold;
+  max-width: 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 标签 */
+.player-tags {
+  display: flex;
+  gap: 3px;
+  justify-content: center;
+  margin-top: 3px;
+}
+
+.tag {
+  font-size: 10px;
+  padding: 2px 5px;
+  border-radius: 3px;
+  color: #fff;
+}
+
+.tag.host {
+  background-color: #ffd700;
+  color: #333;
+}
+
+.tag.banker {
+  background-color: #ff6b6b;
+}
+
+.tag.team {
+  background-color: #666;
+}
+
+.tag.team.team-A {
+  background-color: #ff6b6b;
+}
+
+.tag.team.team-B {
+  background-color: #4ecdc4;
+}
+
+/* 统计 */
+.player-stats {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 5px;
+  font-size: 12px;
+  color: #aaa;
+}
+
+/* 准备状态 */
+.ready-status {
+  margin-top: 5px;
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.ready-status.ready {
+  background-color: #4ecdc4;
+  color: #fff;
+}
+
+.ready-status.not-ready {
+  background-color: #666;
+  color: #aaa;
+}
+
+/* 出牌中 */
+.turn-indicator {
+  position: absolute;
+  top: -20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: #ffd700;
+  color: #333;
+  padding: 3px 10px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: bold;
+  animation: bounce 0.5s infinite;
+}
+
+@keyframes bounce {
+  0%, 100% {
+    transform: translateX(-50%) translateY(0);
+  }
+  50% {
+    transform: translateX(-50%) translateY(-5px);
+  }
+}

@@ -1,0 +1,148 @@
+/* 扑克牌样式 */
+
+.card {
+  width: 60px;
+  height: 84px;
+  border-radius: 4px;
+  background-color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  user-select: none;
+  position: relative;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* 小牌（桌面展示） */
+.card.small {
+  width: 50px;
+  height: 70px;
+}
+
+/* 禁用状态 */
+.card.disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+/* 扣牌状态 */
+.card.face-down {
+  background-color: #1a5c1a;
+  background-image: repeating-linear-gradient(
+    45deg,
+    #1a5c1a,
+    #1a5c1a 10px,
+    #2a7a2a 10px,
+    #2a7a2a 20px
+  );
+}
+
+.card-back {
+  width: 100%;
+  height: 100%;
+  border-radius: 6px;
+  background-color: #1a5c1a;
+  background-image: repeating-linear-gradient(
+    45deg,
+    #1a5c1a,
+    #1a5c1a 10px,
+    #2a7a2a 10px,
+    #2a7a2a 20px
+  );
+}
+
+/* 花色样式 */
+.card.suit-spade,
+.card.suit-club {
+  color: #333;
+}
+
+.card.suit-heart,
+.card.suit-diamond {
+  color: #d00;
+}
+
+.card.joker-big {
+  background: linear-gradient(135deg, #fff5f5 0%, #ffe0e0 100%);
+  border: 2px solid #d00;
+}
+
+.card.joker-big .card-content {
+  color: #d00;
+}
+
+.card.joker-big::after {
+  content: '🃏';
+  font-size: 2em;
+}
+
+.card.joker-small {
+  background: linear-gradient(135deg, #f5f5f5 0%, #e8e8e8 100%);
+  border: 2px solid #888;
+}
+
+.card.joker-small .card-content {
+  color: #888;
+}
+
+.card.joker-small::after {
+  content: '🃏';
+  font-size: 2em;
+}
+
+/* 牌内容 */
+.card-content {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  line-height: 1;
+  width: 100%;
+  height: 100%;
+  padding: 5px;
+  box-sizing: border-box;
+}
+
+.card-rank {
+  font-size: 1.2em;
+  font-weight: bold;
+  line-height: 1;
+}
+
+.card-suit {
+  font-size: 1em;
+  line-height: 1;
+}
+
+.card.small .card-rank {
+  font-size: 1em;
+}
+
+.card.small .card-suit {
+  font-size: 0.9em;
+}
+
+/* 悬停效果 - 仅边框高亮 */
+.card:not(.disabled):hover {
+  border: 3px solid #4CAF50;
+  box-shadow: 0 2px 4px rgba(76, 175, 80, 0.3);
+}
+
+/* 选中状态 */
+.card.selected {
+  border: 3px solid #2196F3;
+  transform: translateY(-15px);
+  box-shadow: 0 8px 16px rgba(33, 150, 243, 0.5);
+}
+
+/* 多选过程中的临时选中状态 */
+.card.selecting {
+  border: 2px dashed #FF9800;
+  background-color: rgba(255, 152, 0, 0.1);
+}
+
+/* 鼠标按下时的状态 */
+.card:not(.disabled):active {
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
