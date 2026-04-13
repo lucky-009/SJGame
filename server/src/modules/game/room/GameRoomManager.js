@@ -11,7 +11,7 @@
 
 const {
     generateDeck, shuffleDeck, cardToString, stringToCard,
-    isTrump, isSameSuit, getTrumpWeight, getScoreValue
+    isTrump, isSameSuit, getTrumpWeight, getScoreValue, getLevelRank
 } = require('../../../common/CardUtils');
 
 const {
@@ -53,7 +53,7 @@ class GameRoom {
         this.players = new Map();  // userId -> playerInfo
         this.gameRound = null;     // 当前游戏局
         this.deck = [];            // 牌堆
-        this.currentLevel = 2;     // 当前等级
+        this.currentLevel = 2;     // 当前等级 注意：currentLevel 是数字 2-14，需要用 getLevelRank 转换
         this.phase = GAME_PHASES.DEALING;
         this.turnIndex = 0;        // 当前回合
         this.turnSeat = 0;         // 当前操作玩家座位
@@ -450,7 +450,9 @@ class GameRoom {
      */
     checkDealingEvents(player, card) {
         const {bidState, responded} = this.dealingState;
-        const levelRank = String(this.currentLevel);
+        // 注意：currentLevel 是数字 2-14，card.rank 是字符串 '2'-'10','J','Q','K','A'
+        // 必须使用 getLevelRank() 转换，不能用 String()
+        const levelRank = getLevelRank(this.currentLevel);
 
         // 第一局：抢庄阶段
         if (this.isFirstRound && !bidState.hasBanker) {
@@ -602,7 +604,8 @@ class GameRoom {
      */
     isHigherTrump(rank, currentTrumpSuit) {
         const priorityOrder = ['5', 'small', 'big'];
-        const currentRank = currentTrumpSuit ? String(this.currentLevel) : null;
+        // 注意：currentLevel 是数字 2-14，需要用 getLevelRank 转换
+        const currentRank = currentTrumpSuit ? getLevelRank(this.currentLevel) : null;
 
         const currentIdx = currentRank ? priorityOrder.indexOf(currentRank) : -1;
         const newIdx = priorityOrder.indexOf(rank);
@@ -946,7 +949,8 @@ class GameRoom {
         }
 
         const card = stringToCard(cardStr);
-        const levelRank = String(this.currentLevel);
+        // 注意：currentLevel 是数字 2-14，card.rank 是字符串，需要用 getLevelRank 转换
+        const levelRank = getLevelRank(this.currentLevel);
 
         if (card.rank !== levelRank) {
             return {success: false, message: `抢主必须使用${levelRank}`};
@@ -2011,17 +2015,17 @@ class GameRoom {
 
         if (opponentScore >= 80) {
             // 闲家赢
-            winner = 'opponent';
+            winner = opponentTeam;
             const diff = opponentScore - 80;
             levelChange = Math.floor(diff / 40) + 1;
         } else if (opponentScore === 0) {
-            winner = 'banker';
+            winner = bankerTeam;
             levelChange = 3;
         } else if (opponentScore <= 40) {
-            winner = 'banker';
+            winner = bankerTeam;
             levelChange = 2;
         } else {
-            winner = 'banker';
+            winner = bankerTeam;
             levelChange = 1;
         }
 
@@ -2047,9 +2051,9 @@ class GameRoom {
 
         // 检查是否有人达到A并获胜
         let gameWinner = null;
-        if (room.levelA === 14 && bankerTeam === 'A' && winner === 'banker') {
+        if (room.levelA === 14 && bankerTeam === 'A' && winner === 'A') {
             gameWinner = 'A';
-        } else if (room.levelB === 14 && bankerTeam === 'B' && winner === 'banker') {
+        } else if (room.levelB === 14 && bankerTeam === 'B' && winner === 'B') {
             gameWinner = 'B';
         }
 
@@ -2364,7 +2368,8 @@ class GameRoom {
      */
     recheckDealingEvents() {
         const {bidState, responded} = this.dealingState;
-        const levelRank = String(this.currentLevel);
+        // 注意：currentLevel 是数字 2-14，需要用 getLevelRank 转换
+        const levelRank = getLevelRank(this.currentLevel);
 
         for (const player of this.players.values()) {
             if (this.isFirstRound) {

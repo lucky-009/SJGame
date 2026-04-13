@@ -4,22 +4,48 @@
  */
 
 // 花色定义
+/**
+ * 扑克牌工具函数
+ * 
+ * 数据类型规范：
+ * - currentLevel: 数字类型 2-14，表示游戏等级
+ * - card.rank: 字符串类型 '2'-'10','J','Q','K','A','big','small'
+ * - 两者比较时需要使用 getLevelRank() 转换，不能直接使用 String()
+ */
+
 const SUITS = {
     SPADE: 'spade',   // 黑桃
     HEART: 'heart',   // 红桃
     CLUB: 'club',     // 梅花
-    DIAMOND: 'diamond', // 方片
-    JOKER: 'joker'    // 王牌
+    DIAMOND: 'diamond', // 方块
+    JOKER: 'joker'    // 大小王
 };
 
-// 点数定义
 const RANKS = {
     '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7,
     '8': 8, '9': 9, '10': 10, 'J': 11, 'Q': 12, 'K': 13, 'A': 14
 };
 
-// 等级牌（用于确定主牌）
 const LEVEL_RANKS = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
+
+/**
+ * 等级数字到牌面字符的映射
+ * currentLevel: 2-14 (数字)
+ * 返回: '2'-'10','J','Q','K','A' (字符串)
+ */
+const LEVEL_MAP = {
+    2: '2', 3: '3', 4: '4', 5: '5', 6: '6', 7: '7',
+    8: '8', 9: '9', 10: '10', 11: 'J', 12: 'Q', 13: 'K', 14: 'A'
+};
+
+/**
+ * 将等级数字转换为牌面字符
+ * @param {number} currentLevel - 等级数字 2-14
+ * @returns {string} 牌面字符 '2'-'10','J','Q','K','A'
+ */
+function getLevelRank(currentLevel) {
+    return LEVEL_MAP[currentLevel] || '2';
+}
 
 /**
  * 生成一副牌（108张）
@@ -90,6 +116,8 @@ function getCardValue(rank) {
 /**
  * 判断是否为固定主牌
  * 固定主：红桃5、大王、小王、当前等级牌
+ * @param {Object} card - 牌对象 {suit, rank}
+ * @param {number} currentLevel - 等级数字 2-14
  */
 function isFixedTrump(card, currentLevel = 2) {
     // 红桃5是固定主
@@ -97,7 +125,8 @@ function isFixedTrump(card, currentLevel = 2) {
     // 大王小王
     if (card.suit === 'joker') return true;
     // 等级固定主：根据 currentLevel 判断对应的等级牌
-    if (card.rank === String(currentLevel)) return true;
+    // 注意：card.rank 是字符串 'J','Q','K','A'，需要用 getLevelRank 转换
+    if (card.rank === getLevelRank(currentLevel)) return true;
 
     return false;
 }
@@ -123,8 +152,13 @@ function isTrump(card, trumpSuit, isNoTrump, currentLevel) {
 
 /**
  * 获取牌的主牌权重（用于比较大小）
+ * @param {Object} card - 牌对象 {suit, rank}
+ * @param {string} trumpSuit - 主花色
+ * @param {boolean} isNoTrump - 是否无主
+ * @param {number} currentLevel - 等级数字 2-14
  */
 function getTrumpWeight(card, trumpSuit, isNoTrump, currentLevel) {
+    console.log('card ==', card)
     // 红桃5 - 最高
     if (card.suit === 'heart' && card.rank === '5') return 100;
 
@@ -135,7 +169,8 @@ function getTrumpWeight(card, trumpSuit, isNoTrump, currentLevel) {
     if (card.suit === 'joker' && card.rank === 'small') return 50;
 
     // 等级牌
-    if (card.rank === String(currentLevel)) {
+    // 注意：card.rank 是字符串 'J','Q','K','A'，需要用 getLevelRank 转换
+    if (card.rank === getLevelRank(currentLevel)) {
         const levelValue = RANKS[card.rank];
         // 无主时所有等级牌等价
         if (isNoTrump) {
@@ -151,11 +186,11 @@ function getTrumpWeight(card, trumpSuit, isNoTrump, currentLevel) {
 
     // 主花色普通牌 17 -29
     if (!isNoTrump && trumpSuit && card.suit === trumpSuit) {
-        return 15 + card.rank;
+        return 15 + RANKS[card.rank];
     }
 
     // 副牌 2-14
-    return card.rank;
+    return RANKS[card.rank];
 }
 
 /**
@@ -207,11 +242,13 @@ module.exports = {
     SUITS,
     RANKS,
     LEVEL_RANKS,
+    LEVEL_MAP,
     generateDeck,
     shuffleDeck,
     cardToString,
     stringToCard,
     getCardValue,
+    getLevelRank,
     isFixedTrump,
     isTrump,
     getTrumpWeight,
