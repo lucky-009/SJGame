@@ -103,7 +103,8 @@ import {
     setDrawBottomState,
     clearDrawBottomState,
     resetGame,
-    setRemainingCards
+    setRemainingCards,
+    setPlayerCardCounts
 } from '../../store/gameSlice';
 import {updatePlayers} from '../../store/roomSlice';
 import {GAME_PHASES, SUITS, TEAMS, SUIT_NAMES, GAME_ACTIONS} from '../../utils/constants';
@@ -391,6 +392,8 @@ class Game extends Component {
         // 重置回合状态，发牌阶段不显示倒计时
         this.props.setTurnSeatIndex(-1);
         this.props.setIsMyTurn(false);
+        // 清除上局的结果显示
+        this.props.setRoundResult(null);
     };
 
     /**
@@ -999,7 +1002,7 @@ class Game extends Component {
      * 事件: game:card_played
      */
     handleCardPlayed = (data) => {
-        const {seatIndex, cards, playType, remainingCards} = data;
+        const {seatIndex, cards} = data;
 
         // 将字符串牌转换为 Card 对象
         const parsedCards = cards.map(cardStr => {
@@ -1011,11 +1014,6 @@ class Game extends Component {
 
         // 添加到桌面
         this.props.addDeskCard({seatIndex, cards: parsedCards});
-
-        // 更新牌堆剩余张数
-        if (remainingCards !== undefined) {
-            this.props.setRemainingCards(remainingCards);
-        }
     };
 
     /**
@@ -1023,7 +1021,7 @@ class Game extends Component {
      * 事件: game:turn_result
      */
     handleTurnResult = (data) => {
-        const {winnerSeat, winnerTeam, score, teamAScore, teamBScore, isLastTurn} = data;
+        const {winnerSeat, score, teamAScore, teamBScore} = data;
 
         // 更新得分
         if (teamAScore !== undefined) {
@@ -1050,7 +1048,6 @@ class Game extends Component {
             this.props.resetRoundScore();
             this.props.setRoundResult(null);
             this.props.setLeadSeatIndex(winnerSeat);
-            // 注意：这里不需要再次设置 turnSeatIndex，因为已经在上面的setTurnSeatIndex中设置了
         }, 1000);
     };
 
@@ -1087,6 +1084,11 @@ class Game extends Component {
             teamBScore,
             gameWinner
         });
+
+        // 2秒后清除结果显示
+        setTimeout(() => {
+            this.props.setGameResult(null);
+        }, 2000);
     };
 
     /**
@@ -1725,8 +1727,18 @@ class Game extends Component {
      * 渲染等级和主花色
      */
     renderGameInfo = () => {
-        const {levelA, levelB, mainSuit, currentLevel, bankerTeam, players, bidState, mySeatIndex} = this.props;
-        const myTeam = getTeam(mySeatIndex);
+        const {
+            levelA,
+            levelB,
+            mainSuit,
+            currentLevel,
+            bankerTeam,
+            players,
+            bidState,
+            mySeatIndex,
+            teamAScore,
+            teamBScore
+        } = this.props;
 
         // 根据 seatIndex 查找玩家
         const getPlayerBySeat = (seatIndex) => {
@@ -1737,46 +1749,58 @@ class Game extends Component {
         const trumpCaller = getPlayerBySeat(bidState.trumpCallerSeat);
         const trumpCallerName = bidState.hasTrump && trumpCaller ? trumpCaller.username : null;
 
+        const mainBanker = getPlayerBySeat(bidState.bankerSeat);
+        const mainBankerName = bidState.hasBanker && mainBanker ? mainBanker.username : null;
+
+        // 计算闲家得分（非庄家队伍的得分）
+        const bankerTeamName = bankerTeam || 'A';
+        const idleTeamScore = bankerTeamName === 'A' ? teamBScore : teamAScore;
+
         return (
             <div className="game-info">
-                <div className={`team-level team-${myTeam}`}>
-                    <span className="team-name">我队</span>
+                <div className={`team-level team-A`}>
+                    <span className="team-name">红队(A):</span>
                     <span className="level">{levelA}</span>
                 </div>
 
                 <div className="game-center-info">
-                    <div className="current-level">
-                        <span>等级: </span>
-                        <span className="level-value">{currentLevel}</span>
+                    <div className="info-row">
+                        <div className="info-item">
+                            <span className="label">等级:</span>
+                            <span className="value">{currentLevel}</span>
+                        </div>
+                        <div className="info-item">
+                            <span className="label">主:</span>
+                            <span className={`suit-icon ${mainSuit}`}>
+                                {mainSuit === SUITS.NONE ? '无主' : SUIT_NAMES[mainSuit]}
+                            </span>
+                        </div>
+                        {trumpCallerName && (
+                            <div className="info-item">
+                                <span className="label">来源:</span>
+                                <span className="value">{trumpCallerName}</span>
+                            </div>
+                        )}
                     </div>
-
-                    <div className="trump-suit">
-                        <span>主: </span>
-                        <span className={`suit-icon ${mainSuit}`}>
-              {mainSuit === SUITS.NONE ? '无主' : SUIT_NAMES[mainSuit]}
-            </span>
+                    <div className="info-row">
+                        <div className="info-item">
+                            <span className="label">台上:</span>
+                            <span className="value">{bankerTeamName}队</span>
+                        </div>
+                        <div className="info-item">
+                            <span className="label">打底:</span>
+                            <span
+                                className="value">{bidState.bankerSeat >= 0 ? mainBankerName : '-'}</span>
+                        </div>
+                        <div className="info-item score">
+                            <span className="label">闲家得分:</span>
+                            <span className="value">{idleTeamScore}</span>
+                        </div>
                     </div>
-
-                    <div className="trump-caller-info">
-                        <span>来源: </span>
-                        <span>{trumpCallerName}</span>
-                    </div>
-
-
-                    <div className="banker-info">
-                        <span>庄: </span>
-                        <span>{bankerTeam}队</span>
-                    </div>
-
-                    <div className="banker-info">
-                        <span>主庄: </span>
-                        <span>{bidState.bankerSeat}号位</span>
-                    </div>
-
                 </div>
 
-                <div className={`team-level team-${myTeam === 'A' ? 'B' : 'A'}`}>
-                    <span className="team-name">对手</span>
+                <div className={`team-level team-B`}>
+                    <span className="team-name">蓝队(B):</span>
                     <span className="level">{levelB}</span>
                 </div>
             </div>
@@ -1803,7 +1827,7 @@ class Game extends Component {
             availableReverseCards,
             drawBottom
         } = this.props;
-        const {error, currentAction, drawInfo} = this.state;
+        const {error, warnning, currentAction, drawInfo} = this.state;
 
         const canPlay = isMyTurn &&
             phase === GAME_PHASES.PLAYING &&
@@ -1814,7 +1838,7 @@ class Game extends Component {
         return (
             <div className="action-panel">
                 {error && <div className="error-message">{error}</div>}
-
+                {warnning && <div className="error-message">{warnning}</div>}
                 {/* 发牌进度显示 */}
                 {isDealing && (
                     <div className="deal-progress">
@@ -1976,14 +2000,48 @@ class Game extends Component {
     };
 
     /**
+     * 渲染单局结果
+     */
+    renderGameResult = () => {
+        const {gameResult, mySeatIndex} = this.props;
+
+        if (!gameResult) return null;
+
+        const {winnerTeam, opponentScore, levelChange, newLevelA, newLevelB, teamAScore, teamBScore} = gameResult;
+        const myTeam = getTeam(mySeatIndex);
+        const isMyTeamWin = winnerTeam === myTeam;
+
+        return (
+            <div className="game-result-overlay">
+                <div className="game-result-content">
+                    <div className={`winner-text ${isMyTeamWin ? 'win' : 'lose'}`}>
+                        {isMyTeamWin ? '我方获胜' : '对方获胜'}
+                    </div>
+                    <div className="score-detail">
+                        <div className="score-row">
+                            <span className="team-label">A队:</span>
+                            <span className="team-score">{teamAScore}分</span>
+                        </div>
+                        <div className="score-row">
+                            <span className="team-label">B队:</span>
+                            <span className="team-score">{teamBScore}分</span>
+                        </div>
+                    </div>
+                    <div className="level-change">
+                        {levelChange > 0 ? `+${levelChange}` : levelChange} 级
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
+    /**
      * 渲染发牌状态提示（屏幕正中间）
      */
     renderDealStatus = () => {
         const {dealProgress, bidState, phase, roundIndex} = this.props;
         const {isDealing, current, total} = dealProgress;
 
-        if (!isDealing && phase !== GAME_PHASES.BIDDING) return null;
-        const isFirstRound = roundIndex === 0;
         let statusText = '';
         if (isDealing) {
             statusText = `发牌中... ${current}/${total}`;
@@ -1998,6 +2056,8 @@ class Game extends Component {
             }
         } else if (phase === GAME_PHASES.BOTTOMING) {
             statusText = '抄底确认环节...'
+        } else {
+            return null;
         }
 
         return (
@@ -2035,6 +2095,7 @@ class Game extends Component {
 
                 {this.renderActionPanel()}
                 {this.renderRoundResult()}
+                {this.renderGameResult()}
             </div>
         );
     }
@@ -2069,7 +2130,8 @@ const mapStateToProps = (state) => ({
     leadSeatIndex: state.game.leadSeatIndex,
     leadSuit: state.game.leadSuit,
     turnTimeLeft: state.game.turnTimeLeft,
-    roundResult: state.game.gameResult,
+    roundResult: state.game.roundResult,
+    gameResult: state.game.gameResult,
     roundIndex: state.game.roundIndex,
     canCallBanker: state.game.canCallBanker,
     canCallTrump: state.game.canCallTrump,
@@ -2090,7 +2152,9 @@ const mapStateToProps = (state) => ({
     // 抄底阶段
     drawBottom: state.game.drawBottom,
     // 牌堆剩余张数
-    remainingCards: state.game.remainingCards
+    remainingCards: state.game.remainingCards,
+    // 各玩家手牌数量
+    playerCardCounts: state.game.playerCardCounts
 });
 
 const mapDispatchToProps = {
@@ -2136,7 +2200,8 @@ const mapDispatchToProps = {
     clearDrawBottomState,
     updatePlayers,
     resetGame,
-    setRemainingCards
+    setRemainingCards,
+    setPlayerCardCounts
 };
 
 // 使用 useNavigate 和 useParams 的包装组件

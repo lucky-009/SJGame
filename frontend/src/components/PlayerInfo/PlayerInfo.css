@@ -46,9 +46,13 @@
 
 /* 同队颜色 */
 .player-info.my-team {
-  border: 2px solid #4a9eff;
+  border: 2px solid #4ecdc4;
 }
 
+/*对手颜色*/
+.player-info.opponent-team{
+  border: 2px solid #ff6b6b;
+}
 /* 头像 */
 .player-avatar {
   margin-bottom: 5px;
@@ -69,7 +73,7 @@
 }
 
 .player-info.my-team .avatar-circle {
-  border-color: #4a9eff;
+  border-color: #4ecdc4;
 }
 
 /* 玩家详情 */

@@ -39,7 +39,7 @@ class PlayerInfo extends Component {
       'player-info',
       `position-${position}`,
       isTurn ? 'turn' : '',
-      isMyTeam ? 'my-team' : '',
+      isMyTeam ? 'my-team' : 'opponent-team',
       isReady ? 'ready' : ''
     ].filter(Boolean).join(' ');
 

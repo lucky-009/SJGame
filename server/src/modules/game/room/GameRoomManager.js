@@ -57,7 +57,7 @@ class GameRoom {
         this.phase = GAME_PHASES.DEALING;
         this.turnIndex = 0;        // 当前回合
         this.turnSeat = 0;         // 当前操作玩家座位
-        this.turnCards = {};      // 当前回合各玩家出的牌
+        this.turnCards = new Map();  // 当前回合各玩家出的牌（使用Map保持插入顺序，格式：seat -> { cards: [], playType: 'normal'|'trumpKill'|'discard' }）
         this.teamAScore = 0;       // A队得分
         this.teamBScore = 0;       // B队得分
         this.isFirstRound = true; // 是否第一局
@@ -755,16 +755,8 @@ class GameRoom {
             card: cardStr,
             suit: card.suit
         });
-
         // 广播投标状态变化
         this.broadcastBidState();
-
-        if (this.bidTimeout) {
-            clearTimeout(this.bidTimeout);
-            this.bidTimeout = null;
-        }
-        // 检查是否满足补底条件
-        this.checkAndTriggerTakeBottom();
         return {success: true};
     }
 
@@ -826,22 +818,6 @@ class GameRoom {
         }
 
         await this.gameRound.save();
-
-        // 广播锁庄，合二为一
-        // if (!this.dealingState.bidState.hasBanker) {
-        //     //TODO 直接锁庄（没有抢庄过程），当前事件，前端暂未监听和响应
-        //     this.io.to(this.roomCode).emit('game:banker_locked_direct', {
-        //         seatIndex: player.seatIndex,
-        //         card: cardStr,
-        //         team: player.team
-        //     });
-        // } else {
-        //     // 抢庄后的锁庄
-        //     this.io.to(this.roomCode).emit('game:banker_locked', {
-        //         seatIndex: player.seatIndex,
-        //         card: cardStr
-        //     });
-        // }
 
         this.io.to(this.roomCode).emit('game:banker_locked', {
             seatIndex: player.seatIndex,
@@ -1192,6 +1168,9 @@ class GameRoom {
         this.drawBottomState.isWaitingBury = false;
         this.drawBottomState.pendingDrawer = null;
 
+        console.log('--埋底1', this.drawBottomState)
+        console.log('--埋底2', this.dealingState)
+
         this.askNextPlayerDrawBottom();
     }
 
@@ -1356,6 +1335,7 @@ class GameRoom {
         if (this.drawBottomState.drawTimeout) {
             clearTimeout(this.drawBottomState.drawTimeout);
         }
+        // TODO 询问抄底计时器，每人5s
         this.drawBottomState.drawTimeout = setTimeout(() => {
             this.handleDrawBottomTimeout();
         }, 5000);
@@ -1575,7 +1555,7 @@ class GameRoom {
         this.phase = GAME_PHASES.PLAYING;
         this.turnIndex = 1;
         this.turnSeat = this.gameRound.bankerSeatIndex;
-        this.turnCards = {};
+        this.turnCards = new Map();  // 初始化出牌记录（使用Map保持插入顺序）
 
         // 广播游戏开始
         this.io.to(this.roomCode).emit('game:playing_start', {
@@ -1635,8 +1615,7 @@ class GameRoom {
 // --- 修复部分：统计每张要埋的牌出现的次数 ---
         const buryCountMap = {};
         for (const card of buryCards) {
-            const str = cardToString(card);
-            buryCountMap[str] = (buryCountMap[str] || 0) + 1;
+            buryCountMap[card] = (buryCountMap[card] || 0) + 1;
         }
 
         // 移除埋的牌
@@ -1648,7 +1627,6 @@ class GameRoom {
             }
             return true; // 保留
         });
-        // ---------------------------------------
 
         // 更新底牌
         this.gameRound.bottomCards = buryCards;
@@ -1660,6 +1638,12 @@ class GameRoom {
             seatIndex: this.turnSeat,
             buryCount: 8,
             remainingCards: this.gameRound.bottomCards.length
+        });
+
+        // 给该玩家发送手牌更新
+        this.io.to(player.socketId).emit('game:hand_updated', {
+            handCards: player.handCards.map(c => cardToString(c)),
+            seatIndex: player.seatIndex
         });
 
         // 判断是普通埋底还是抄底后的埋底
@@ -1683,12 +1667,15 @@ class GameRoom {
         const player = Array.from(this.players.values()).find(p => p.seatIndex === this.turnSeat);
         if (!player) return;
 
+        // 发送当前玩家出牌指令
+        // deskCards 需转换为普通对象，因为 Map 序列化后是空对象
+        // 内部存储仍是 Map（保持插入顺序），这里只是为了发送给客户端
         this.io.to(player.socketId).emit('game:your_turn', {
             action: 'play_cards',
             seatIndex: this.turnSeat,
             currentTurn: this.turnIndex,
             handCards: player.handCards.map(c => cardToString(c)),
-            deskCards: this.turnCards,
+            deskCards: Object.fromEntries(this.turnCards.entries()),
             trumpSuit: this.gameRound.trumpSuit,
             isNoTrump: this.gameRound.isNoTrump,
             level: this.currentLevel
@@ -1706,16 +1693,27 @@ class GameRoom {
 
         const cards = cardStrs.map(c => stringToCard(c));
 
-        // 验证手牌
         const handStrs = player.handCards.map(c => cardToString(c));
-        for (const cardStr of cardStrs) {
-            if (!handStrs.includes(cardStr)) {
-                return {success: false, message: `手牌中没有 ${cardStr}`};
+        // 1. 统计玩家手牌中每种牌的数量
+        const handCountMap = {};
+        for (const card of handStrs) {
+            handCountMap[card] = (handCountMap[card] || 0) + 1;
+        }
+        // 2. 校验需要的牌是否足够
+        for (const reqCard of cardStrs) {
+            if (!handCountMap[reqCard] || handCountMap[reqCard] <= 0) {
+                return {
+                    success: false,
+                    message: `手牌中 ${reqCard} 数量不足`
+                };
             }
+            // 每匹配到一张，就在计数器中减 1
+            handCountMap[reqCard] -= 1;
         }
 
         // 验证出牌是否合法
-        const isFirstPlay = Object.keys(this.turnCards).length === 0;
+        // 使用 Map.size 判断是否首家出牌（不能使用 Object.keys() 因为数字键会被排序）
+        const isFirstPlay = this.turnCards.size === 0;
         const validation = validatePlay(
             cards,
             player.handCards,
@@ -1728,7 +1726,7 @@ class GameRoom {
         if (!validation.isValid) {
             // 计算罚分
             const pattern = analyzePlayPattern(cards, this.gameRound.trumpSuit, this.gameRound.isNoTrump, this.currentLevel);
-            const maxSubCount = Math.max(...(pattern.leadPattern?.subPatterns?.map(sp => sp.count) || [1]));
+            const maxSubCount = Math.max(...(pattern.leadPattern?.subPatterns?.map(sp => sp.weight) || [1]));
             const penalty = maxSubCount * 10;
 
             // 罚分归属
@@ -1749,21 +1747,28 @@ class GameRoom {
             return {success: false, message: validation.reason, penalty};
         }
 
-        // 移除手牌
-        const cardStrSet = new Set(cardStrs);
+        // 移除手牌中对应的牌
+        const playCountMap = {};
+        for (const card of cardStrs) {
+            playCountMap[card] = (playCountMap[card] || 0) + 1;
+        }
         player.handCards = player.handCards.filter(c => {
             const str = cardToString(c);
-            if (cardStrSet.has(str)) {
-                cardStrSet.delete(str);
-                return false;
+            if (playCountMap[str] > 0) {
+                playCountMap[str]--; // 消耗一个计数
+                return false; // 移除这副牌
             }
-            return true;
+            return true; // 保留
         });
 
-        // 判断出牌类型
+        // 判断出牌类型（用于结算时的优先级判断）
+        // playType 取值：normal(正常跟牌)、trumpKill(毙牌)、discard(贴牌)
+        // 结算优先级：毙牌 > 正常出牌 > 贴牌
         let playType = 'normal';
         if (!isFirstPlay) {
-            const leadCards = Object.values(this.turnCards)[0];
+            // 获取首家出的牌，根据首家的牌型计算，其他玩家是毙牌还是贴（Map 的第一个值即是首家）
+            const leadCards = this.turnCards.values().next().value.cards;
+
             const leadPattern = analyzePlayPattern(
                 leadCards,
                 this.gameRound.trumpSuit,
@@ -1778,10 +1783,12 @@ class GameRoom {
                 this.gameRound.isNoTrump,
                 this.currentLevel
             );
+            console.log('--本轮玩家出牌类型', playType);
         }
 
-        // 记录出牌
-        this.turnCards[this.turnSeat] = cards;
+        // 记录出牌（使用 Map 保持插入顺序，便于结算时判断出牌顺序）
+        // 存储格式：{ cards: 牌数组, playType: 出牌类型 }
+        this.turnCards.set(this.turnSeat, {cards, playType});
 
         // 保存到数据库
         await PlayRecord.create({
@@ -1798,11 +1805,16 @@ class GameRoom {
             seatIndex: this.turnSeat,
             cards: cardStrs,
             playType,
-            remainingCards: this.gameRound.bottomCards.length
         });
 
-        // 检查是否所有人都出了牌
-        if (Object.keys(this.turnCards).length === 4) {
+        // 给该玩家发送手牌更新
+        this.io.to(player.socketId).emit('game:hand_updated', {
+            handCards: player.handCards.map(c => cardToString(c)),
+            seatIndex: player.seatIndex
+        });
+
+        // 检查是否所有人都出了牌（4名玩家）
+        if (this.turnCards.size === 4) {
             // 回合结算
             await this.settleTurn();
         } else {
@@ -1816,58 +1828,109 @@ class GameRoom {
 
     /**
      * 回合结算
+     * 规则：毙牌 > 正常出牌 > 贴牌
+     * 同牌型时比较大小，同大小时先出赢
+     *
+     * 比较优先级说明（gameRule.md 第571行）：
+     * 1. 首先按 playType 优先级：毙牌(3) > 正常(2) > 贴牌(1)
+     * 2. 若 playType 相同，则用 comparePlays 比较牌型大小
+     * 3. 若牌型大小也相同，则先出的玩家获胜（Map 保持插入顺序）
      */
     async settleTurn() {
-        const cards = Object.entries(this.turnCards);
+        // 使用 Map.entries() 获取按出牌顺序的数组
+        // 注意：不能使用 Object.entries()，因为数字键会被排序
+        const entries = Array.from(this.turnCards.entries());
 
-        // 找出最大的牌
-        let maxSeat = -1;
-        let maxWeight = -1;
-        let winnerTeam = '';
+        console.log('========== 回合结算 ==========');
+        console.log('出牌顺序:', entries.map(([seat, data]) => `${seat}号位(${data.playType}): ${data.cards.map(c => c.suit + c.rank).join(',')}`));
 
-        for (const [seatStr, turnCards] of cards) {
-            const seat = parseInt(seatStr);
-            const leadSeat = parseInt(cards[0][0]);
-            const leadCards = cards[0][1];
+        // entries[0] 是首家出的牌
+        const leadCards = entries[0][1].cards;
 
-            // 获取主导牌型的权重
-            const leadPattern = analyzePlayPattern(
-                leadCards,
-                this.gameRound.trumpSuit,
-                this.gameRound.isNoTrump,
-                this.currentLevel
-            );
-            const maxSub = this.getMaxSubPattern(turnCards);
-            const weight = this.getSubPatternWeight(maxSub);
+        const trumpSuit = this.gameRound.trumpSuit;
+        const isNoTrump = this.gameRound.isNoTrump;
+        const currentLevel = this.currentLevel;
 
-            // 比较
+        let maxSeat = -1;        // 当前最大牌的玩家座位
+        let maxCards = null;     // 当前最大牌的牌数组
+        let maxPlayType = null;  // 当前最大牌的出牌类型
+        let winnerTeam = '';     // 获胜队伍
+
+        // 遍历所有出牌，按出牌顺序比较
+        for (const [seat, data] of entries) {
+            const turnCards = data.cards;
+            const playType = data.playType;
+
             let isWin = false;
-            if (weight > maxWeight) {
+
+            // 首家直接获胜
+            if (maxCards === null) {
                 isWin = true;
-            } else if (weight === maxWeight) {
-                // 同大小，先出赢
-                if (seat < maxSeat) {
+                console.log(`  座位${seat}: 首家，直接获胜`);
+            } else {
+                // 比较优先级：毙牌(3) > 正常(2) > 贴牌(1)
+                const playTypeOrder = {trumpKill: 3, normal: 2, discard: 1};
+                const currentTypeOrder = playTypeOrder[playType] || 2;
+                const maxTypeOrder = playTypeOrder[maxPlayType] || 2;
+
+                if (currentTypeOrder > maxTypeOrder) {
+                    // playType 优先级更高，直接获胜
                     isWin = true;
+                    console.log(`  座位${seat}: ${playType}(${currentTypeOrder}) > ${maxPlayType}(${maxTypeOrder})，获胜`);
+                } else if (currentTypeOrder === maxTypeOrder) {
+                    // 贴/毙/跟类型 相同，用 comparePlays 比较牌型大小
+                    const result = comparePlays(
+                        maxCards,
+                        turnCards,
+                        trumpSuit,
+                        isNoTrump,
+                        currentLevel,
+                        maxSeat,
+                        seat
+                    );
+
+                    if (result > 0) {
+                        // maxCards 大，当前玩家输
+                        console.log(`  座位${seat}: 贴/毙/跟类型相同，牌型比座位${maxSeat}小，失败`);
+                    } else if (result < 0) {
+                        // turnCards 大，当前玩家赢
+                        isWin = true;
+                        console.log(`  座位${seat}: 贴/毙/跟类型相同，牌型比座位${maxSeat}大，获胜`);
+                    } else {
+                        // 牌型大小也相同，按出牌顺序，先出的赢
+                        const currentIndex = entries.findIndex(e => e[0] === seat);
+                        const maxIndex = entries.findIndex(e => e[0] === maxSeat);
+                        if (currentIndex < maxIndex) {
+                            isWin = true;
+                            console.log(`  座位${seat}: 贴/毙/跟和牌型都相同，先出(index${currentIndex} < index${maxIndex})，获胜`);
+                        } else {
+                            console.log(`  座位${seat}: 贴/毙/跟和牌型都相同，后出(index${currentIndex} > index${maxIndex})，失败`);
+                        }
+                    }
+                } else {
+                    console.log(`  座位${seat}: ${playType}(${currentTypeOrder}) < ${maxPlayType}(${maxTypeOrder})，失败`);
                 }
             }
 
+            // 更新当前最大牌
             if (isWin) {
-                maxWeight = weight;
                 maxSeat = seat;
+                maxCards = turnCards;
+                maxPlayType = playType;
                 const winner = Array.from(this.players.values()).find(p => p.seatIndex === seat);
                 winnerTeam = winner.team;
             }
         }
 
-        // 计算得分
+        // 计算本回合得分（所有玩家打出的分数牌）
         let roundScore = 0;
-        for (const [, turnCards] of cards) {
-            for (const card of turnCards) {
+        for (const [, data] of entries) {
+            for (const card of data.cards) {
                 roundScore += getScoreValue(card);
             }
         }
 
-        // 更新队伍得分（只有闲家得分）
+        // 只有闲家获胜才能得分
         if (winnerTeam !== this.gameRound.bankerTeam) {
             if (winnerTeam === 'A') {
                 this.teamAScore += roundScore;
@@ -1875,11 +1938,16 @@ class GameRoom {
                 this.teamBScore += roundScore;
             }
         }
+        console.log(`最终获胜: 座位${maxSeat} (${maxPlayType}), 队伍: ${winnerTeam}, 分值: ${roundScore}`);
+        console.log(`A队得分: ${this.teamAScore}, B队得分: ${this.teamBScore}`);
+        console.log('========== 回合结算结束 ==========');
 
-        // 判断是否最后一回合（抠底）
-        const isLastTurn = Object.values(this.players).every(p => p.handCards.length === 0);
+        // 判断是否最后一回合（所有玩家手牌为空）
+        const isLastTurn = Array.from(this.players.values()).every(p => p.handCards.length === 0);
 
-        // 保存回合得分
+        console.log('--是否是最后一轮', isLastTurn);
+
+        // 保存回合得分到数据库
         await RoundScore.create({
             roundId: this.gameRound._id,
             turnIndex: this.turnIndex,
@@ -1890,7 +1958,7 @@ class GameRoom {
             teamBScore: this.teamBScore
         });
 
-        // 广播回合结果
+        // 广播回合结果给所有客户端
         this.io.to(this.roomCode).emit('game:turn_result', {
             turnIndex: this.turnIndex,
             winnerSeat: maxSeat,
@@ -1902,15 +1970,31 @@ class GameRoom {
         });
 
         if (isLastTurn) {
-            // 抠底结算
+            // 最后一回合，进行抠底结算
             await this.settleRound();
         } else {
-            // 下一回合
+            // 进入下一回合
             this.turnIndex++;
-            this.turnSeat = maxSeat;
-            this.turnCards = {};
+            this.turnSeat = maxSeat;  // 获胜玩家获得下轮优先出牌权
+            this.turnCards = new Map();  // 重置出牌记录
             this.notifyPlay();
         }
+    }
+
+    /**
+     * 计算升级后的等级（不能跳过2、J和A）
+     */
+    calculateNewLevel(currentLevel, levelChange) {
+        const specialLevels = [2, 11, 14]; // 2、J和A
+        let newLevel = Math.min(14, currentLevel + levelChange);
+
+        // 检查是否跳过特殊等级
+        for (let level = currentLevel; level <= newLevel; level++) {
+            if (specialLevels.includes(level)) {
+                return level;
+            }
+        }
+        return newLevel;
     }
 
     /**
@@ -1943,22 +2027,21 @@ class GameRoom {
 
         // 更新队伍等级
         const room = await Room.findById(this.roomId);
+
         if (winner === 'opponent') {
+            // 闲家获胜：闲家队伍升级（不能跳过2和J）
             if (opponentTeam === 'A') {
-                room.levelA = Math.min(14, room.levelA + levelChange);
+                room.levelA = this.calculateNewLevel(room.levelA, levelChange);
             } else {
-                room.levelB = Math.min(14, room.levelB + levelChange);
+                room.levelB = this.calculateNewLevel(room.levelB, levelChange);
             }
+            // 庄家队伍保持不变，等待下次成为庄家守庄成功后升级
         } else {
-            // 守庄检查
-            if (this.currentLevel === 2 || this.currentLevel === 11) { // 2或J
-                // 必须守庄成功
+            // 庄家守庄成功：庄家队伍升级（不能跳过2和J）
+            if (bankerTeam === 'A') {
+                room.levelA = this.calculateNewLevel(room.levelA, levelChange);
             } else {
-                if (bankerTeam === 'A') {
-                    room.levelA = Math.min(14, room.levelA + levelChange);
-                } else {
-                    room.levelB = Math.min(14, room.levelB + levelChange);
-                }
+                room.levelB = this.calculateNewLevel(room.levelB, levelChange);
             }
         }
 
@@ -2054,20 +2137,6 @@ class GameRoom {
         this.teamBScore = 0;
 
         this.notifyBankerCall();
-    }
-
-    getMaxSubPattern(cards) {
-        const pattern = analyzePlayPattern(cards, this.gameRound.trumpSuit, this.gameRound.isNoTrump, this.currentLevel);
-        const subPatterns = pattern.leadPattern?.subPatterns || [];
-        if (subPatterns.length === 0) return null;
-        return subPatterns.sort((a, b) => b.count - a.count)[0];
-    }
-
-    getSubPatternWeight(subPattern) {
-        if (!subPattern) return 0;
-        const card = subPattern.cards[0];
-        const weight = getTrumpWeight(card, this.gameRound.trumpSuit, this.gameRound.isNoTrump, this.currentLevel);
-        return weight * subPattern.count;
     }
 
     /**

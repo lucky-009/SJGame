@@ -12,14 +12,13 @@
   padding-bottom: 100px;
 }
 
-/* 游戏信息栏 */
+/* 游戏信息栏 - 两行布局 */
 .game-info {
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 10px 20px;
   background-color: rgba(0, 0, 0, 0.5);
-  height: 60px;
 }
 
 .team-level {
@@ -54,32 +53,56 @@
 
 .game-center-info {
   display: flex;
-  gap: 20px;
+  flex-direction: column;
+  gap: 6px;
   align-items: center;
 }
 
-.current-level,
-.trump-suit,
-.banker-info,
-.trump-caller-info {
-  color: #fff;
-  font-size: 14px;
+.game-center-info .info-row {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  flex-wrap: wrap;
 }
 
-.level-value {
+.game-center-info .info-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.game-center-info .label {
+  color: #eee;
+  font-size: 12px;
+}
+
+.game-center-info .value {
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.game-center-info .info-item.score {
+  background-color: rgba(255, 215, 0, 0.4);
+  padding: 2px 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 215, 0, 0.6);
+}
+
+.game-center-info .info-item.score .value {
   color: #ffd700;
   font-weight: bold;
 }
 
-.suit-icon {
-  font-size: 20px;
+.game-center-info .suit-icon {
+  font-size: 16px;
 }
 
-.suit-icon.heart { color: #d00; }
-.suit-icon.spade { color: #333; }
-.suit-icon.club { color: #333; }
-.suit-icon.diamond { color: #d00; }
-.suit-icon.none { color: #aaa; }
+.game-center-info .suit-icon.heart { color: #d00; }
+.game-center-info .suit-icon.spade { color: #333; }
+.game-center-info .suit-icon.club { color: #333; }
+.game-center-info .suit-icon.diamond { color: #d00; }
+.game-center-info .suit-icon.none { color: #aaa; }
 
 /* 玩家区域 */
 .players-area {
@@ -371,6 +394,79 @@
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
+}
+
+/* 单局结果弹窗 */
+.game-result-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.8);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  animation: fadeIn 0.3s ease;
+}
+
+.game-result-content {
+  background: linear-gradient(180deg, #1a472a 0%, #0d2818 100%);
+  border: 3px solid #4a7c59;
+  border-radius: 16px;
+  padding: 30px 50px;
+  text-align: center;
+  min-width: 280px;
+}
+
+.game-result-content .winner-text {
+  font-size: 32px;
+  font-weight: bold;
+  margin-bottom: 20px;
+}
+
+.game-result-content .winner-text.win {
+  color: #4ecdc4;
+}
+
+.game-result-content .winner-text.lose {
+  color: #ff6b6b;
+}
+
+.game-result-content .score-detail {
+  display: flex;
+  justify-content: space-around;
+  margin-bottom: 15px;
+  padding: 10px;
+  background-color: rgba(0, 0, 0, 0.3);
+  border-radius: 8px;
+}
+
+.game-result-content .score-row {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.game-result-content .team-label {
+  color: #aaa;
+  font-size: 14px;
+}
+
+.game-result-content .team-score {
+  color: #ffd700;
+  font-size: 24px;
+  font-weight: bold;
+}
+
+.game-result-content .level-change {
+  color: #fff;
+  font-size: 18px;
+  padding: 8px 16px;
+  background-color: rgba(74, 124, 89, 0.5);
+  border-radius: 20px;
+  display: inline-block;
 }
 
 /* 牌堆样式 */

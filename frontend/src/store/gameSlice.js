@@ -107,7 +107,10 @@ const initialState = {
   },
 
   // 牌堆剩余张数
-  remainingCards: 0
+  remainingCards: 0,
+
+  // 各玩家手牌数量 { seat0: 25, seat1: 25, ... }
+  playerCardCounts: {}
 };
 
 const gameSlice = createSlice({
@@ -542,6 +545,13 @@ const gameSlice = createSlice({
      */
     setRemainingCards: (state, action) => {
       state.remainingCards = action.payload;
+    },
+
+    /**
+     * 设置玩家手牌数量
+     */
+    setPlayerCardCounts: (state, action) => {
+      state.playerCardCounts = action.payload;
     }
   }
 });
@@ -595,7 +605,8 @@ export const {
   clearDealingActions,
   setDrawBottomState,
   clearDrawBottomState,
-  setRemainingCards
+  setRemainingCards,
+  setPlayerCardCounts
 } = gameSlice.actions;
 
 export default gameSlice.reducer;
