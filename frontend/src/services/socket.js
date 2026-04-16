@@ -452,6 +452,14 @@ export const onRoundResult = (callback) => {
 };
 
 /**
+ * 即将开始下一局
+ * 事件: game:round_starting
+ */
+export const onRoundStarting = (callback) => {
+  on('game:round_starting', callback);
+};
+
+/**
  * 游戏结束
  * 事件: game:game_over
  */
@@ -655,6 +663,14 @@ export const onDrawBottomFatal = (callback) => {
   on('game:draw_bottom_fatal', callback);
 };
 
+/**
+ * 抠底揭示
+ * 事件: game:bottom_reveal
+ */
+export const onBottomReveal = (callback) => {
+  on('game:bottom_reveal', callback);
+};
+
 // ============================================================================
 // 便捷别名（兼容旧代码）
 // ============================================================================
@@ -710,6 +726,7 @@ export default {
   onPlayPenalty,
   onTurnResult,
   onRoundResult,
+  onRoundStarting,
   onGameOver,
 
   // 新增发牌过程事件
@@ -739,6 +756,7 @@ export default {
   onDrawBottomSkipped,
   onDrawBottomComplete,
   onDrawBottomFatal,
+  onBottomReveal,
 
   // 房间解散事件
   onRoomDismissed,

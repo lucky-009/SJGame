@@ -73,6 +73,10 @@ const initialState = {
   roundResult: null,     // 回合结算结果
   gameResult: null,      // 整局结算结果
 
+  // 即将开始下一局提示
+  showRoundStarting: false,
+  roundStartingData: null,
+
   // 特殊状态
   canCallBanker: false,  // 是否可以抢庄
   canCallTrump: false,   // 是否可以抢主
@@ -109,8 +113,8 @@ const initialState = {
   // 牌堆剩余张数
   remainingCards: 0,
 
-  // 各玩家手牌数量 { seat0: 25, seat1: 25, ... }
-  playerCardCounts: {}
+  // 首家出牌数量（用于限制跟牌数量）
+  leadPlayCardCount: 0
 };
 
 const gameSlice = createSlice({
@@ -364,6 +368,20 @@ const gameSlice = createSlice({
     },
 
     /**
+     * 显示/隐藏即将开始下一局提示
+     */
+    setShowRoundStarting: (state, action) => {
+      state.showRoundStarting = action.payload;
+    },
+
+    /**
+     * 设置即将开始下一局数据
+     */
+    setRoundStartingData: (state, action) => {
+      state.roundStartingData = action.payload;
+    },
+
+    /**
      * 设置是否可以抢庄
      */
     setCanCallBanker: (state, action) => {
@@ -548,11 +566,12 @@ const gameSlice = createSlice({
     },
 
     /**
-     * 设置玩家手牌数量
+     * 设置首家出牌数量
      */
-    setPlayerCardCounts: (state, action) => {
-      state.playerCardCounts = action.payload;
-    }
+    setLeadPlayCardCount: (state, action) => {
+      state.leadPlayCardCount = action.payload;
+    },
+
   }
 });
 
@@ -586,6 +605,8 @@ export const {
   decrementTime,
   setRoundResult,
   setGameResult,
+  setShowRoundStarting,
+  setRoundStartingData,
   setCanCallBanker,
   setCanCallTrump,
   setCanTakeBottom,
@@ -606,7 +627,7 @@ export const {
   setDrawBottomState,
   clearDrawBottomState,
   setRemainingCards,
-  setPlayerCardCounts
+  setLeadPlayCardCount
 } = gameSlice.actions;
 
 export default gameSlice.reducer;

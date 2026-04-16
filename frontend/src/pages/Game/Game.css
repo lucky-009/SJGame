@@ -153,7 +153,14 @@
 
 .desk-cards {
   display: flex;
-  gap: -30px;
+}
+
+.desk-cards .card {
+  margin-left: -30px;
+}
+
+.desk-cards .card:first-child {
+  margin-left: 0;
 }
 
 .desk-cards.desk-self {
@@ -201,7 +208,7 @@
   justify-content: center;
   flex-wrap: nowrap;
   overflow-x: auto;
-  padding: 10px 20px;
+  padding: 15px 20px;
 }
 
 .hand-cards .card {
@@ -328,7 +335,7 @@
   .hand-cards {
     justify-content: center;
     overflow-x: auto;
-    padding: 10px 15px;
+    padding: 15px 15px;
   }
 
   .hand-cards .card {
@@ -396,79 +403,6 @@
   to { opacity: 1; }
 }
 
-/* 单局结果弹窗 */
-.game-result-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.8);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 1000;
-  animation: fadeIn 0.3s ease;
-}
-
-.game-result-content {
-  background: linear-gradient(180deg, #1a472a 0%, #0d2818 100%);
-  border: 3px solid #4a7c59;
-  border-radius: 16px;
-  padding: 30px 50px;
-  text-align: center;
-  min-width: 280px;
-}
-
-.game-result-content .winner-text {
-  font-size: 32px;
-  font-weight: bold;
-  margin-bottom: 20px;
-}
-
-.game-result-content .winner-text.win {
-  color: #4ecdc4;
-}
-
-.game-result-content .winner-text.lose {
-  color: #ff6b6b;
-}
-
-.game-result-content .score-detail {
-  display: flex;
-  justify-content: space-around;
-  margin-bottom: 15px;
-  padding: 10px;
-  background-color: rgba(0, 0, 0, 0.3);
-  border-radius: 8px;
-}
-
-.game-result-content .score-row {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.game-result-content .team-label {
-  color: #aaa;
-  font-size: 14px;
-}
-
-.game-result-content .team-score {
-  color: #ffd700;
-  font-size: 24px;
-  font-weight: bold;
-}
-
-.game-result-content .level-change {
-  color: #fff;
-  font-size: 18px;
-  padding: 8px 16px;
-  background-color: rgba(74, 124, 89, 0.5);
-  border-radius: 20px;
-  display: inline-block;
-}
-
 /* 牌堆样式 */
 .card-deck {
   position: absolute;
@@ -523,4 +457,55 @@
   font-weight: bold;
   min-width: 30px;
   text-align: center;
+}
+
+/* 即将开始下一局提示 */
+.round-starting-tip {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1000;
+  animation: slideIn 0.3s ease-out;
+}
+
+.round-starting-content {
+  background: linear-gradient(135deg, rgba(20, 60, 20, 0.95), rgba(10, 40, 10, 0.95));
+  border: 3px solid #ffd700;
+  border-radius: 16px;
+  padding: 24px 40px;
+  text-align: center;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 20px rgba(255, 215, 0, 0.3);
+}
+
+.round-starting-title {
+  color: #ffd700;
+  font-size: 28px;
+  font-weight: bold;
+  margin-bottom: 12px;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.round-starting-info {
+  color: #ffffff;
+  font-size: 18px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+}
+
+.round-starting-info .separator {
+  color: #888;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -60%);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%);
+  }
 }

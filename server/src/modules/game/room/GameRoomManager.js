@@ -99,6 +99,9 @@ class GameRoom {
             isWaitingBury: false,
             pendingDrawer: null
         };
+
+        // 出牌阶段状态
+        this.leadPlayCardCount = 0;  // 首家的出牌数量
     }
 
     /**
@@ -657,14 +660,18 @@ class GameRoom {
      * 检查并触发补底
      */
     checkAndTriggerTakeBottom() {
-        // 只有在发牌完成后且满足条件时才触发
+        // 只有在发牌完成后才触发
         if (this.dealingState.isDealing) {
             return;
         }
 
         if (this.canTakeBottom()) {
-            //     清除定时器并补底
-            this.checkBidTimeout();
+            // 直接执行补底，不要调用 checkBidTimeout()
+            this.performBottomSupplement();
+            
+            // 进入埋底阶段
+            this.phase = GAME_PHASES.BOTTOMING;
+            this.notifyTakeBottom();
         }
     }
 
@@ -1560,6 +1567,7 @@ class GameRoom {
         this.turnIndex = 1;
         this.turnSeat = this.gameRound.bankerSeatIndex;
         this.turnCards = new Map();  // 初始化出牌记录（使用Map保持插入顺序）
+        this.leadPlayCardCount = 0;  // 重置首家出牌数量
 
         // 广播游戏开始
         this.io.to(this.roomCode).emit('game:playing_start', {
@@ -1718,6 +1726,15 @@ class GameRoom {
         // 验证出牌是否合法
         // 使用 Map.size 判断是否首家出牌（不能使用 Object.keys() 因为数字键会被排序）
         const isFirstPlay = this.turnCards.size === 0;
+
+        // 如果不是首家，检查出牌数量是否与首家相同
+        if (!isFirstPlay && cardStrs.length !== this.leadPlayCardCount) {
+            return {
+                success: false,
+                message: `出牌数量必须与首家相同（首家出了${this.leadPlayCardCount}张）`
+            };
+        }
+
         const validation = validatePlay(
             cards,
             player.handCards,
@@ -1749,6 +1766,11 @@ class GameRoom {
             });
 
             return {success: false, message: validation.reason, penalty};
+        }
+
+        // 如果是首家出牌且验证通过，记录出牌数量（即使被罚也要记录）
+        if (isFirstPlay) {
+            this.leadPlayCardCount = cardStrs.length;
         }
 
         // 移除手牌中对应的牌
@@ -1805,10 +1827,16 @@ class GameRoom {
         });
 
         // 广播出牌
+        const playerCardCounts = {};
+        for (const player of this.players.values()) {
+            playerCardCounts[`seat${player.seatIndex}`] = player.handCards.length;
+        }
         this.io.to(this.roomCode).emit('game:card_played', {
             seatIndex: this.turnSeat,
             cards: cardStrs,
             playType,
+            playerCardCounts,
+            leadPlayCardCount: this.leadPlayCardCount
         });
 
         // 给该玩家发送手牌更新
@@ -1974,15 +2002,78 @@ class GameRoom {
         });
 
         if (isLastTurn) {
-            // 最后一回合，进行抠底结算
+            await this.settleBottom(maxSeat, winnerTeam, maxCards);
             await this.settleRound();
         } else {
             // 进入下一回合
             this.turnIndex++;
             this.turnSeat = maxSeat;  // 获胜玩家获得下轮优先出牌权
             this.turnCards = new Map();  // 重置出牌记录
+            this.leadPlayCardCount = 0;  // 重置首家出牌数量
             this.notifyPlay();
         }
+    }
+
+    /**
+     * 抠底结算
+     * @param {number} winnerSeat - 获胜玩家座位
+     * @param {string} winnerTeam - 获胜队伍 (A/B)
+     * @param {Array} winningCards - 获胜方最后一轮的牌
+     */
+    async settleBottom(winnerSeat, winnerTeam, winningCards) {
+        const bankerTeam = this.gameRound.bankerTeam;
+        const bottomCards = this.gameRound.bottomCards.map(c => stringToCard(c));
+
+        let bottomScore = 0;
+        for (const card of bottomCards) {
+            bottomScore += getScoreValue(card);
+        }
+
+        let bottomResult = null;
+
+        if (winnerTeam !== bankerTeam) {
+            const multiplier = getBottomMultiplier(
+                winningCards,
+                this.gameRound.trumpSuit,
+                this.gameRound.isNoTrump,
+                this.currentLevel
+            );
+
+            const drawScore = bottomScore * multiplier;
+
+            if (winnerTeam === 'A') {
+                this.teamAScore += drawScore;
+            } else {
+                this.teamBScore += drawScore;
+            }
+
+            bottomResult = {
+                success: true,
+                multiplier,
+                baseScore: bottomScore,
+                drawScore,
+                winnerTeam
+            };
+
+            console.log(`===== 抠底成功 =====`);
+            console.log(`底牌分数: ${bottomScore}, 抠底倍数: ${multiplier}, 抠底得分: ${drawScore}`);
+            console.log(`闲家(${winnerTeam}队)获得抠底得分`);
+            console.log(`A队: ${this.teamAScore}, B队: ${this.teamBScore}`);
+            console.log(`====================`);
+        }
+
+        this.io.to(this.roomCode).emit('game:bottom_reveal', {
+            bottomCards: this.gameRound.bottomCards,
+            winnerSeat,
+            winnerTeam,
+            bottomResult,
+            teamAScore: this.teamAScore,
+            teamBScore: this.teamBScore
+        });
+
+        await new Promise(resolve => setTimeout(resolve, 5000));
+
+        return bottomResult;
     }
 
     /**
@@ -2032,7 +2123,7 @@ class GameRoom {
         // 更新队伍等级
         const room = await Room.findById(this.roomId);
 
-        if (winner === 'opponent') {
+        if (winner === opponentTeam) {
             // 闲家获胜：闲家队伍升级（不能跳过2和J）
             if (opponentTeam === 'A') {
                 room.levelA = this.calculateNewLevel(room.levelA, levelChange);
@@ -2059,6 +2150,22 @@ class GameRoom {
 
         await room.save();
 
+        // 计算下一局庄家座位：庄家赢→+2（庄家队友），闲家赢→+1（顺延给敌方）
+        const isBankerWin = winner === bankerTeam;
+        const nextBankerSeat = isBankerWin
+            ? (this.gameRound.bankerSeatIndex + 2) % 4
+            : (this.gameRound.bankerSeatIndex + 1) % 4;
+        const nextBankerPlayer = Array.from(this.players.values()).find(p => p.seatIndex === nextBankerSeat);
+        const nextBankerTeam = nextBankerPlayer?.team || 'A';
+        const nextLevel = winner === bankerTeam
+            ? (bankerTeam === 'A' ? room.levelA : room.levelB)
+            : (opponentTeam === 'A' ? room.levelA : room.levelB);
+
+        // 保存到 gameRound，供 startNextRound 使用
+        this.gameRound.nextBankerSeat = nextBankerSeat;
+        this.gameRound.nextBankerTeam = nextBankerTeam;
+        await this.gameRound.save();
+
         // 广播单局结果
         this.io.to(this.roomCode).emit('game:round_result', {
             winner,
@@ -2079,8 +2186,16 @@ class GameRoom {
             });
             this.phase = GAME_PHASES.FINISHED;
         } else {
-            // 下一局
-            await this.startNextRound();
+            this.io.to(this.roomCode).emit('game:round_starting', {
+                nextRoundIndex: this.gameRound.roundIndex + 1,
+                bankerSeat: nextBankerSeat,
+                bankerTeam: nextBankerTeam,
+                bankerName: nextBankerPlayer?.username || '',
+                level: nextLevel
+            });
+
+            // 3秒后开始下一局
+            setTimeout(() => this.startNextRound(), 3000);
         }
     }
 
@@ -2089,29 +2204,28 @@ class GameRoom {
      */
     async startNextRound() {
         this.isFirstRound = false;
-        this.currentLevel = Math.max(
-            await Room.findById(this.roomId).then(r => r.levelA),
-            await Room.findById(this.roomId).then(r => r.levelB)
-        );
 
-        // 洗牌发牌
+        // 从 Room 读取庄家队伍的等级
+        const room = await Room.findById(this.roomId);
+        const newBankerSeat = this.gameRound.nextBankerSeat;
+        const newBankerTeam = this.gameRound.nextBankerTeam;
+        this.currentLevel = newBankerTeam === 'A' ? room.levelA : room.levelB;
+
+        // 洗牌
         this.deck = shuffleDeck(generateDeck());
-        const hands = [[], [], [], []];
-        for (let i = 0; i < 100; i++) {
-            hands[i % 4].push(this.deck[i]);
-        }
         const bottomCards = this.deck.slice(100);
 
         // 创建新游戏局
         const prevRound = this.gameRound;
+
         const round = new GameRound({
             roomId: this.roomId,
             roundIndex: prevRound.roundIndex + 1,
             level: this.currentLevel,
-            bankerTeam: prevRound.bankerTeam,
-            bankerSeatIndex: (prevRound.bankerSeatIndex + 1) % 4, // 逆时针
-            trumpSuit: prevRound.trumpSuit,
-            isNoTrump: prevRound.isNoTrump,
+            bankerTeam: newBankerTeam,
+            bankerSeatIndex: newBankerSeat,
+            trumpSuit: null,
+            isNoTrump: null,
             phase: GAME_PHASES.DEALING,
             status: 'active',
             bottomCards: bottomCards.map(c => cardToString(c))
@@ -2119,28 +2233,57 @@ class GameRoom {
 
         await round.save();
 
-        // 分配手牌
-        for (let i = 0; i < 4; i++) {
-            const player = Array.from(this.players.values()).find(p => p.seatIndex === i);
-            if (player) {
-                player.handCards = hands[i];
-                await PlayerCard.create({
-                    roundId: round._id,
-                    userId: player.userId,
-                    seatIndex: i,
-                    cards: hands[i].map(c => cardToString(c))
-                });
-            }
+        // 初始化玩家手牌（清空，用于发牌动画逐步增加）
+        for (const player of this.players.values()) {
+            player.handCards = [];
         }
+
+        // 初始化发牌状态
+        this.dealingState = {
+            isDealing: true,
+            cardIndex: 0,
+            currentPlayer: 0,
+            dealInterval: null,
+            responded: {
+                bankerCall: false,
+                bankerLock: false,
+                bankerReverse: false,
+                trumpCall: false,
+                trumpLock: false,
+                trumpReverse: false
+            },
+            bidState: {
+                hasBanker: false,
+                bankerSeat: -1,
+                bankerSuit: null,
+                hasTrump: false,
+                trumpSuit: null,
+                trumpCallerSuit: null,
+                isLocked: false
+            }
+        };
 
         this.gameRound = round;
         this.phase = GAME_PHASES.DEALING;
         this.turnIndex = 1;
-        this.turnSeat = round.bankerSeatIndex;
+        this.turnSeat = newBankerSeat;
         this.teamAScore = 0;
         this.teamBScore = 0;
 
-        this.notifyBankerCall();
+        // 广播开始发牌
+        this.io.to(this.roomCode).emit('game:deal_start', {
+            totalCards: 100,
+            isFirstRound: false,
+            level: this.currentLevel,
+            bankerSeat: newBankerSeat,
+            bankerTeam: newBankerTeam,
+            roundIndex: round.roundIndex
+        });
+
+        // 开始单张发牌动画，每125ms发一张
+        this.dealingState.dealInterval = setInterval(() => {
+            this.dealOneCard();
+        }, 125);
     }
 
     /**
@@ -2238,7 +2381,22 @@ class GameRoom {
         // 广播开始重新发牌
         this.io.to(this.roomCode).emit('game:redeal_start', {
             message: '重新发牌',
-            totalCards: 100
+            totalCards: 100,
+            level: this.currentLevel,
+            bankerUserId: this.isFirstRound?null:this.gameRound.bankerUserId,
+            bankerSeatIndex: this.isFirstRound?null:this.gameRound.bankerSeatIndex,
+            bankerTeam: this.isFirstRound?null:this.gameRound.bankerTeam,
+            trumpSuit: this.isFirstRound?null:this.gameRound.trumpSuit,
+            isNoTrump: this.isFirstRound?null:this.gameRound.isNoTrump,
+            phase: GAME_PHASES.DEALING,
+            bidState: {
+                hasBanker: false,
+                bankerSeat: -1,
+                bankerSuit: null,
+                hasTrump: false,
+                trumpSuit: null,
+                isLocked: false
+            }
         });
 
         // 开始重新发牌

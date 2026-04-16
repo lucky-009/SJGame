@@ -43,8 +43,11 @@ const roomSlice = createSlice({
      * 更新单个玩家状态
      */
     updatePlayer: (state, action) => {
-      const { playerId, updates } = action.payload;
-      const player = state.players.find(p => p.id === playerId);
+      const { playerId, seatIndex, updates } = action.payload;
+      const player = state.players.find(p => 
+        (playerId && p.id === playerId) || 
+        (seatIndex !== undefined && p.seatIndex === seatIndex)
+      );
       if (player) {
         Object.assign(player, updates);
       }

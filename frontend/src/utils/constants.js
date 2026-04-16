@@ -172,3 +172,9 @@ export const API_BASE_URL = 'http://localhost:3000/api';
 
 // Socket 基础 URL
 export const SOCKET_URL = 'http://localhost:3000';
+
+// // API 基础 URL
+// export const API_BASE_URL = 'http://47.77.221.30:3000/api';
+//
+// // Socket 基础 URL
+// export const SOCKET_URL = 'http://47.77.221.30:3000';

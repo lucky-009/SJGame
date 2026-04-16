@@ -13,6 +13,7 @@ import {
     onCardPlayed,
     onTurnResult,
     onRoundResult,
+    onRoundStarting,
     onGameOver,
     onPlayingStart,
     onBottomDrawn,
@@ -48,6 +49,7 @@ import {
     onDrawBottomSkipped,
     onDrawBottomComplete,
     onDrawBottomFatal,
+    onBottomReveal,
     // 客户端发送事件
     playCards,
     callBanker,
@@ -84,6 +86,8 @@ import {
     decrementTime,
     setRoundResult,
     setGameResult,
+    setShowRoundStarting,
+    setRoundStartingData,
     setCanCallBanker,
     setCanCallTrump,
     setCanLockBanker,
@@ -104,15 +108,17 @@ import {
     clearDrawBottomState,
     resetGame,
     setRemainingCards,
-    setPlayerCardCounts
+    setLeadPlayCardCount
 } from '../../store/gameSlice';
-import {updatePlayers} from '../../store/roomSlice';
+import {updatePlayers, updatePlayer} from '../../store/roomSlice';
 import {GAME_PHASES, SUITS, TEAMS, SUIT_NAMES, GAME_ACTIONS} from '../../utils/constants';
 import ruleEngine from '../../ruleEngine';
 import Card from '../../components/Card';
 import PlayerInfo from '../../components/PlayerInfo';
 import Timer from '../../components/Timer';
 import Button from '../../components/Button';
+import BottomRevealModal from '../../components/BottomRevealModal';
+import GameResultModal from '../../components/GameResultModal';
 import './Game.css';
 
 /**
@@ -129,7 +135,11 @@ class Game extends Component {
             bottomSelection: [], // 存储选中的牌的索引
             buryingSelectedCards: [], // 存储选中的牌本身
             currentAction: null, // 当前操作类型
-            error: ''
+            error: '',
+            showBottomReveal: false,
+            bottomRevealData: null,
+            showGameResult: false,
+            gameResultData: null
         };
     }
 
@@ -175,6 +185,12 @@ class Game extends Component {
         // 事件: game:round_result
         onRoundResult((data) => {
             this.handleRoundResult(data);
+        });
+
+        // 即将开始下一局
+        // 事件: game:round_starting
+        onRoundStarting((data) => {
+            this.handleRoundStarting(data);
         });
 
         // 游戏结束
@@ -372,6 +388,12 @@ class Game extends Component {
         onDrawBottomFatal((data) => {
             this.handleDrawBottomFatal(data);
         });
+
+        // 抠底揭示
+        // 事件: game:bottom_reveal
+        onBottomReveal((data) => {
+            this.handleBottomReveal(data);
+        });
     };
 
     /**
@@ -380,20 +402,54 @@ class Game extends Component {
      */
     handleDealStart = (data) => {
         console.log('🎴 开始发牌:', data);
-        const {totalCards, isFirstRound, level} = data;
+        const {totalCards, isFirstRound, level, bankerSeat, bankerTeam} = data;
+
+        // 隐藏"即将开始"提示
+        this.props.setShowRoundStarting(false);
+        this.props.setRoundStartingData(null);
+
+        // 关闭单局结算弹窗
+        this.setState({
+            showGameResult: false,
+            gameResultData: null
+        });
+
+        // 设置发牌进度
         this.props.setDealProgress({
             isDealing: true,
             current: 0,
             total: totalCards
         });
+        this.props.setRemainingCards(totalCards);
+
+        // 更新基本信息
         this.props.setCurrentLevel(level);
         this.props.setPhase(GAME_PHASES.DEALING);
-        this.props.setRemainingCards(totalCards);
-        // 重置回合状态，发牌阶段不显示倒计时
         this.props.setTurnSeatIndex(-1);
         this.props.setIsMyTurn(false);
-        // 清除上局的结果显示
-        this.props.setRoundResult(null);
+
+        // 非首局（下一局）需要额外重置状态
+        if (!isFirstRound) {
+            // 重置游戏状态
+            this.props.clearDeskCards();
+            this.props.resetRoundScore();
+            this.props.setRoundResult(null);
+            this.props.setMyHands([]);
+            this.props.setBottomCards([]);
+            this.props.setHiddenBottom([]);
+            this.props.setDeskCards({seat0: [], seat1: [], seat2: [], seat3: []});
+
+            // 更新庄家信息和局数
+            if (bankerTeam) {
+                this.props.setBanker({bankerId: '', bankerTeam});
+            }
+
+            // 重置操作状态
+            this.setState({
+                currentAction: null,
+                buryingSelectedCards: []
+            });
+        }
     };
 
     /**
@@ -584,24 +640,37 @@ class Game extends Component {
      */
     handleRedealStart = (data) => {
         console.log('🔄 开始重新发牌:', data);
-        const {message} = data;
+        const {message, phase, bankerUserId, bankerTeam, trumpSuit, isNoTrump, bidState, totalCards} = data;
+
+        // 清除原有手牌和选中状态
+        this.props.setMyHands([]);
+        this.props.clearSelection();
+
+        // 用服务端数据更新游戏状态
+        this.props.setPhase(phase);
+        this.props.setBanker({
+            bankerId: bankerUserId || '',
+            bankerTeam: bankerTeam || ''
+        });
+        this.props.setMainSuit(trumpSuit || '');
+        this.props.setBidState({
+            currentBidder: bidState.bankerSeat,
+            bidSuit: bidState.bankerSuit,
+            hasBanker: bidState.hasBanker,
+            hasTrump: bidState.hasTrump,
+            isLocked: bidState.isLocked
+        });
+
+        // 清除操作按钮权限
+        this.props.clearDealingActions();
+        this.props.clearDrawBottomState();
+        this.props.clearDeskCards();
 
         // 更新发牌进度
         this.props.setDealProgress({
             isDealing: true,
             current: 0,
-            total: 100
-        });
-
-        // 清除所有玩家的手牌和选中状态
-        this.props.setMyHands([]);
-        this.props.clearSelection();
-        this.props.setPhase(GAME_PHASES.DEALING);
-        this.props.setMainSuit('');
-        this.props.setBidState({
-            currentBidder: -1,
-            bidSuit: '',
-            isLocked: false
+            total: totalCards
         });
 
         // 显示重新发牌提示
@@ -835,6 +904,35 @@ class Game extends Component {
     };
 
     /**
+     * 处理抠底揭示
+     * 事件: game:bottom_reveal
+     */
+    handleBottomReveal = (data) => {
+        console.log('🃏 抠底揭示:', data);
+
+        const {bottomCards, winnerSeat, winnerTeam, bottomResult, teamAScore, teamBScore} = data;
+
+        if (teamAScore !== undefined) {
+            this.props.addTeamScore({team: TEAMS.A, score: teamAScore - this.props.teamAScore});
+        }
+        if (teamBScore !== undefined) {
+            this.props.addTeamScore({team: TEAMS.B, score: teamBScore - this.props.teamBScore});
+        }
+
+        this.setState({
+            showBottomReveal: true,
+            bottomRevealData: {
+                bottomCards,
+                winnerSeat,
+                winnerTeam,
+                bottomResult,
+                teamAScore,
+                teamBScore
+            }
+        });
+    };
+
+    /**
      * 提交抄底
      */
     handleSubmitDrawBottom = (drawType, chosenSuit, cards) => {
@@ -1002,7 +1100,12 @@ class Game extends Component {
      * 事件: game:card_played
      */
     handleCardPlayed = (data) => {
-        const {seatIndex, cards} = data;
+        const {seatIndex, cards, playerCardCounts, leadPlayCardCount} = data;
+
+        // 存储首家出牌数量
+        if (leadPlayCardCount !== undefined) {
+            this.props.setLeadPlayCardCount(leadPlayCardCount);
+        }
 
         // 将字符串牌转换为 Card 对象
         const parsedCards = cards.map(cardStr => {
@@ -1014,6 +1117,14 @@ class Game extends Component {
 
         // 添加到桌面
         this.props.addDeskCard({seatIndex, cards: parsedCards});
+
+        // 更新所有玩家的剩余手牌数
+        if (playerCardCounts) {
+            for (const [key, count] of Object.entries(playerCardCounts)) {
+                const s = parseInt(key.replace('seat', ''));
+                this.props.updatePlayer({seatIndex: s, updates: {cardCount: count}});
+            }
+        }
     };
 
     /**
@@ -1048,6 +1159,7 @@ class Game extends Component {
             this.props.resetRoundScore();
             this.props.setRoundResult(null);
             this.props.setLeadSeatIndex(winnerSeat);
+            this.props.setLeadPlayCardCount(0);
         }, 1000);
     };
 
@@ -1072,23 +1184,49 @@ class Game extends Component {
         this.props.setTeamLevel({team: TEAMS.A, level: newLevelA});
         this.props.setTeamLevel({team: TEAMS.B, level: newLevelB});
 
-        // 设置游戏结果
-        this.props.setGameResult({
-            winnerTeam: winner,
+        // 设置游戏结果弹窗
+        this.setState({
+            showGameResult: true,
+            gameResultData: {
+                winnerTeam: winner,
+                bankerTeam,
+                opponentScore,
+                levelChange,
+                newLevelA,
+                newLevelB,
+                teamAScore,
+                teamBScore,
+                gameWinner
+            }
+        });
+    };
+
+    /**
+     * 处理即将开始下一局
+     * 事件: game:round_starting
+     */
+    handleRoundStarting = (data) => {
+        const {nextRoundIndex, bankerSeat, bankerTeam, bankerName, level} = data;
+
+        // 更新对局基本信息
+        this.props.setBanker({bankerId: '', bankerTeam});
+        this.props.setCurrentLevel(level);
+
+        // 显示"即将开始"提示
+        this.props.setShowRoundStarting(true);
+        this.props.setRoundStartingData({
+            nextRoundIndex,
+            bankerSeat,
             bankerTeam,
-            opponentScore,
-            levelChange,
-            newLevelA,
-            newLevelB,
-            teamAScore,
-            teamBScore,
-            gameWinner
+            bankerName,
+            level
         });
 
-        // 2秒后清除结果显示
-        setTimeout(() => {
-            this.props.setGameResult(null);
-        }, 2000);
+        // 关闭单局结算弹窗
+        this.setState({
+            showGameResult: false,
+            gameResultData: null
+        });
     };
 
     /**
@@ -1119,6 +1257,8 @@ class Game extends Component {
         this.props.setTurnSeatIndex(bankerSeat);
         // 清除埋底选牌状态
         this.setState({buryingSelectedCards: []});
+        // 重置首家出牌数量
+        this.props.setLeadPlayCardCount(0);
     };
 
     /**
@@ -1821,31 +1961,27 @@ class Game extends Component {
             canLockTrump,
             canReverseTrump,
             selectedCards,
-            dealProgress,
             availableBankerCards,
             availableTrumpCards,
             availableReverseCards,
-            drawBottom
+            drawBottom,
+            leadPlayCardCount
         } = this.props;
         const {error, warnning, currentAction, drawInfo} = this.state;
 
+        // 是否需要限制出牌数量（首家已出牌）
+        const needLimitCount = leadPlayCardCount > 0;
+        // 满足出牌条件的检查
         const canPlay = isMyTurn &&
             phase === GAME_PHASES.PLAYING &&
-            selectedCards.length > 0;
+            selectedCards.length > 0 &&
+            (!needLimitCount || selectedCards.length === leadPlayCardCount);
 
-        const isDealing = dealProgress.isDealing;
 
         return (
             <div className="action-panel">
                 {error && <div className="error-message">{error}</div>}
                 {warnning && <div className="error-message">{warnning}</div>}
-                {/* 发牌进度显示 */}
-                {isDealing && (
-                    <div className="deal-progress">
-                        发牌中... {dealProgress.current}/{dealProgress.total}
-                    </div>
-                )}
-
                 {phase === GAME_PHASES.PLAYING && isMyTurn && (
                     <>
                         <Button
@@ -1854,7 +1990,7 @@ class Game extends Component {
                             disabled={!canPlay}
                             onClick={this.handlePlayCards}
                         >
-                            出牌 ({selectedCards.length})
+                            出牌 {needLimitCount ? `(${selectedCards.length}/${leadPlayCardCount})` : `(${selectedCards.length})`}
                         </Button>
 
                         <Button
@@ -2000,46 +2136,10 @@ class Game extends Component {
     };
 
     /**
-     * 渲染单局结果
-     */
-    renderGameResult = () => {
-        const {gameResult, mySeatIndex} = this.props;
-
-        if (!gameResult) return null;
-
-        const {winnerTeam, opponentScore, levelChange, newLevelA, newLevelB, teamAScore, teamBScore} = gameResult;
-        const myTeam = getTeam(mySeatIndex);
-        const isMyTeamWin = winnerTeam === myTeam;
-
-        return (
-            <div className="game-result-overlay">
-                <div className="game-result-content">
-                    <div className={`winner-text ${isMyTeamWin ? 'win' : 'lose'}`}>
-                        {isMyTeamWin ? '我方获胜' : '对方获胜'}
-                    </div>
-                    <div className="score-detail">
-                        <div className="score-row">
-                            <span className="team-label">A队:</span>
-                            <span className="team-score">{teamAScore}分</span>
-                        </div>
-                        <div className="score-row">
-                            <span className="team-label">B队:</span>
-                            <span className="team-score">{teamBScore}分</span>
-                        </div>
-                    </div>
-                    <div className="level-change">
-                        {levelChange > 0 ? `+${levelChange}` : levelChange} 级
-                    </div>
-                </div>
-            </div>
-        );
-    };
-
-    /**
      * 渲染发牌状态提示（屏幕正中间）
      */
     renderDealStatus = () => {
-        const {dealProgress, bidState, phase, roundIndex} = this.props;
+        const {dealProgress, bidState, phase} = this.props;
         const {isDealing, current, total} = dealProgress;
 
         let statusText = '';
@@ -2095,7 +2195,44 @@ class Game extends Component {
 
                 {this.renderActionPanel()}
                 {this.renderRoundResult()}
-                {this.renderGameResult()}
+                <GameResultModal
+                    visible={this.state.showGameResult}
+                    winnerTeam={this.state.gameResultData?.winnerTeam}
+                    bankerTeam={this.state.gameResultData?.bankerTeam}
+                    teamAScore={this.state.gameResultData?.teamAScore}
+                    teamBScore={this.state.gameResultData?.teamBScore}
+                    levelChange={this.state.gameResultData?.levelChange}
+                    newLevelA={this.state.gameResultData?.newLevelA}
+                    newLevelB={this.state.gameResultData?.newLevelB}
+                    gameWinner={this.state.gameResultData?.gameWinner}
+                    mySeatIndex={this.props.mySeatIndex}
+                    autoClose={3000}
+                    onClose={() => this.setState({showGameResult: false, gameResultData: null})}
+                />
+                {this.props.showRoundStarting && this.props.roundStartingData && (
+                    <div className="round-starting-tip">
+                        <div className="round-starting-content">
+                            <div className="round-starting-title">
+                                第{this.props.roundStartingData.nextRoundIndex}局即将开始，请做好准备
+                            </div>
+                            <div className="round-starting-info">
+                                <span>庄家: 座位{this.props.roundStartingData.bankerSeat}</span>
+                                <span className="separator">|</span>
+                                <span>当前等级: {this.props.roundStartingData.level}级</span>
+                            </div>
+                        </div>
+                    </div>
+                )}
+                <BottomRevealModal
+                    visible={this.state.showBottomReveal}
+                    bottomCards={this.state.bottomRevealData?.bottomCards}
+                    winnerSeat={this.state.bottomRevealData?.winnerSeat}
+                    winnerTeam={this.state.bottomRevealData?.winnerTeam}
+                    bottomResult={this.state.bottomRevealData?.bottomResult}
+                    teamAScore={this.state.bottomRevealData?.teamAScore}
+                    teamBScore={this.state.bottomRevealData?.teamBScore}
+                    onClose={() => this.setState({showBottomReveal: false, bottomRevealData: null})}
+                />
             </div>
         );
     }
@@ -2132,7 +2269,6 @@ const mapStateToProps = (state) => ({
     turnTimeLeft: state.game.turnTimeLeft,
     roundResult: state.game.roundResult,
     gameResult: state.game.gameResult,
-    roundIndex: state.game.roundIndex,
     canCallBanker: state.game.canCallBanker,
     canCallTrump: state.game.canCallTrump,
     canTakeBottom: state.game.canTakeBottom,
@@ -2153,8 +2289,8 @@ const mapStateToProps = (state) => ({
     drawBottom: state.game.drawBottom,
     // 牌堆剩余张数
     remainingCards: state.game.remainingCards,
-    // 各玩家手牌数量
-    playerCardCounts: state.game.playerCardCounts
+    // 首家出牌数量
+    leadPlayCardCount: state.game.leadPlayCardCount
 });
 
 const mapDispatchToProps = {
@@ -2180,6 +2316,8 @@ const mapDispatchToProps = {
     decrementTime,
     setRoundResult,
     setGameResult,
+    setShowRoundStarting,
+    setRoundStartingData,
     setCanCallBanker,
     setCanCallTrump,
     setCanLockBanker,
@@ -2199,9 +2337,10 @@ const mapDispatchToProps = {
     setDrawBottomState,
     clearDrawBottomState,
     updatePlayers,
+    updatePlayer,
     resetGame,
     setRemainingCards,
-    setPlayerCardCounts
+    setLeadPlayCardCount
 };
 
 // 使用 useNavigate 和 useParams 的包装组件

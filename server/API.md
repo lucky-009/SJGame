@@ -1072,7 +1072,40 @@ socket.emit('game:play_cards', {
 
 ---
 
-#### 3.24 单局结果
+#### 3.24 抠底揭示
+
+| 事件 | 说明 |
+|------|------|
+| 方向 | 服务端 → 客户端 |
+| 事件名 | game:bottom_reveal |
+| 触发时机 | 最后一轮结算完成后、单局结算前 |
+
+**接收参数**
+
+| 参数名 | 类型 | 说明 |
+|--------|------|------|
+| bottomCards | Array\<String\> | 底牌内容（8张） |
+| winnerSeat | Number | 获胜玩家座位 |
+| winnerTeam | String | 获胜队伍 (A/B) |
+| bottomResult | Object/null | 抠底结果（闲家获胜时才有值） |
+| └─ success | Boolean | 是否抠底成功 |
+| └─ multiplier | Number | 抠底倍数 |
+| └─ baseScore | Number | 底牌原始分数 |
+| └─ drawScore | Number | 抠底得分 |
+| └─ winnerTeam | String | 得分归属队伍 |
+| teamAScore | Number | A队总分（含抠底） |
+| teamBScore | Number | B队总分（含抠底） |
+
+**前端处理建议**
+
+- 展示底牌内容
+- 闲家获胜时显示抠底倍数和得分
+- 庄家获胜时显示"庄家获胜，无抠底"
+- 5秒后自动继续结算
+
+---
+
+#### 3.25 单局结果
 
 | 事件 | 说明 |
 |------|------|
@@ -1095,7 +1128,7 @@ socket.emit('game:play_cards', {
 
 ---
 
-#### 3.25 游戏结束
+#### 3.26 游戏结束
 
 | 事件 | 说明 |
 |------|------|
@@ -1110,7 +1143,7 @@ socket.emit('game:play_cards', {
 
 ---
 
-#### 3.26 下一局开始
+#### 3.27 下一局开始
 
 | 事件 | 说明 |
 |------|------|

@@ -94,6 +94,15 @@ const gameRoundSchema = new mongoose.Schema({
     type: String,
     enum: ['pending', 'active', 'finished'],
     default: 'pending'
+  },
+  // 下一局庄家信息
+  nextBankerSeat: {
+    type: Number,
+    enum: [0, 1, 2, 3]
+  },
+  nextBankerTeam: {
+    type: String,
+    enum: ['A', 'B']
   }
 }, {
   timestamps: true
