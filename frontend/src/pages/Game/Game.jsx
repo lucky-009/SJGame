@@ -640,26 +640,33 @@ class Game extends Component {
      */
     handleRedealStart = (data) => {
         console.log('🔄 开始重新发牌:', data);
-        const {message, phase, bankerUserId, bankerTeam, trumpSuit, isNoTrump, bidState, totalCards} = data;
+        const {message, totalCards, isFirstRound} = data;
 
         // 清除原有手牌和选中状态
         this.props.setMyHands([]);
         this.props.clearSelection();
 
-        // 用服务端数据更新游戏状态
-        this.props.setPhase(phase);
-        this.props.setBanker({
-            bankerId: bankerUserId || '',
-            bankerTeam: bankerTeam || ''
-        });
-        this.props.setMainSuit(trumpSuit || '');
-        this.props.setBidState({
-            currentBidder: bidState.bankerSeat,
-            bidSuit: bidState.bankerSuit,
-            hasBanker: bidState.hasBanker,
-            hasTrump: bidState.hasTrump,
-            isLocked: bidState.isLocked
-        });
+        this.props.setPhase(GAME_PHASES.DEALING);
+
+        if (isFirstRound) {
+            this.props.setMainSuit(SUITS.NONE);
+            this.props.setBidStateInfo({
+                hasBanker: false,
+                bankerSeat: -1,
+                hasTrump: false,
+                trumpSuit: null,
+                isLocked: false,
+                trumpCallerSeat: -1
+            });
+        } else {
+            this.props.setMainSuit(SUITS.NONE);
+            this.props.setBidStateInfo({
+                ...this.props.bidState,
+                hasTrump: false,
+                trumpSuit: null,
+                trumpCallerSeat: -1
+            });
+        }
 
         // 清除操作按钮权限
         this.props.clearDealingActions();
@@ -1132,7 +1139,7 @@ class Game extends Component {
      * 事件: game:turn_result
      */
     handleTurnResult = (data) => {
-        const {winnerSeat, score, teamAScore, teamBScore} = data;
+        const {winnerSeat, winnerTeam, score, teamAScore, teamBScore} = data;
 
         // 更新得分
         if (teamAScore !== undefined) {
@@ -1145,12 +1152,13 @@ class Game extends Component {
         // 立即更新当前出牌玩家为获胜者，移除"出牌中"提示
         this.props.setTurnSeatIndex(winnerSeat);
 
-        // 设置回合结果
+        // 设置回合结果，使用服务端返回的 winnerTeam 判断
         const mySeatIndex = this.props.mySeatIndex;
+        const myTeam = mySeatIndex % 2 === 0 ? 'A' : 'B';
         this.props.setRoundResult({
             winnerSeat,
             score,
-            isMyTeamWin: winnerSeat % 2 === mySeatIndex % 2
+            isMyTeamWin: winnerTeam === myTeam
         });
 
 // 延迟后清除桌面，准备下一轮
@@ -1160,7 +1168,7 @@ class Game extends Component {
             this.props.setRoundResult(null);
             this.props.setLeadSeatIndex(winnerSeat);
             this.props.setLeadPlayCardCount(0);
-        }, 1000);
+        }, 1200);
     };
 
     /**
@@ -1207,6 +1215,17 @@ class Game extends Component {
      */
     handleRoundStarting = (data) => {
         const {nextRoundIndex, bankerSeat, bankerTeam, bankerName, level} = data;
+
+        // 清空上一局的状态（保留队伍等级 levelA/levelB 和当前等级）
+        this.props.setMainSuit(SUITS.NONE);
+        this.props.setBidStateInfo({
+            hasBanker: false,
+            bankerSeat: -1,
+            hasTrump: false,
+            trumpSuit: null,
+            isLocked: false,
+            trumpCallerSeat: -1
+        });
 
         // 更新对局基本信息
         this.props.setBanker({bankerId: '', bankerTeam});
@@ -1255,9 +1274,8 @@ class Game extends Component {
         this.props.setPhase(GAME_PHASES.PLAYING);
         this.props.setLeadSeatIndex(bankerSeat);
         this.props.setTurnSeatIndex(bankerSeat);
-        // 清除埋底选牌状态
+        this.props.clearDealingActions();
         this.setState({buryingSelectedCards: []});
-        // 重置首家出牌数量
         this.props.setLeadPlayCardCount(0);
     };
 

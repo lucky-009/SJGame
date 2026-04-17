@@ -2382,21 +2382,7 @@ class GameRoom {
         this.io.to(this.roomCode).emit('game:redeal_start', {
             message: '重新发牌',
             totalCards: 100,
-            level: this.currentLevel,
-            bankerUserId: this.isFirstRound?null:this.gameRound.bankerUserId,
-            bankerSeatIndex: this.isFirstRound?null:this.gameRound.bankerSeatIndex,
-            bankerTeam: this.isFirstRound?null:this.gameRound.bankerTeam,
-            trumpSuit: this.isFirstRound?null:this.gameRound.trumpSuit,
-            isNoTrump: this.isFirstRound?null:this.gameRound.isNoTrump,
-            phase: GAME_PHASES.DEALING,
-            bidState: {
-                hasBanker: false,
-                bankerSeat: -1,
-                bankerSuit: null,
-                hasTrump: false,
-                trumpSuit: null,
-                isLocked: false
-            }
+            isFirstRound: this.isFirstRound
         });
 
         // 开始重新发牌
