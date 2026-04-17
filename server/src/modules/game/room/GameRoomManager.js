@@ -92,12 +92,12 @@ class GameRoom {
         this.drawBottomState = {
             isActive: false,
             currentAskerSeat: -1,
-            askedPlayers: [],
-            skippedTrumpCaller: false,
+            abandonedPlayers: [], // 已放弃的玩家（不再询问）
             hasDrawer: false,
             drawTimeout: null,
             isWaitingBury: false,
-            pendingDrawer: null
+            pendingDrawer: null,
+            lastDrawType: null     // 上次成功抄底的牌型: 'hearts5_pair'|'big_joker_pair'|'small_joker_pair'|'trump_pair'
         };
 
         // 出牌阶段状态
@@ -335,11 +335,16 @@ class GameRoom {
         if (this.dealingState.bidState.isLocked) {
             this.performBottomSupplement();
         } else {
-            // 通知前端进入等待操作阶段，并开始10s倒计时
-            this.notifyWaitForOperation();
-            this.startBidTimeout(10000);
+            const {bidState} = this.dealingState;
+            if (bidState.hasBanker && bidState.hasTrump) {
+                // 通知前端进入等待操作阶段，并开始10s倒计时
+                this.notifyWaitForOperation();
+                this.startBidTimeout(10000);
+            } else {
+                console.log(`检测到，缺庄/缺主,有庄=${bidState.hasBanker},有主=${bidState.hasTrump}`)
+                // TODO 还没有主花色或者庄家，需要由玩家确定后才可以开始补底，每10s发起一次询问，前端弹出抢主/抢庄等可用按钮
+            }
         }
-
     }
 
     /**
@@ -364,6 +369,7 @@ class GameRoom {
                 waitType.push('lock_trump');
             }
         }
+
 
         this.io.to(this.roomCode).emit('game:wait_for_operation', {
             phase: this.phase,
@@ -397,7 +403,7 @@ class GameRoom {
      * 检查投标是否超时
      */
     checkBidTimeout() {
-        if (this.phase !== GAME_PHASES.DEALEND && this.phase !== GAME_PHASES.DEALING) {
+        if (this.phase !== GAME_PHASES.DEALEND) {
             return;
         }
         const {bidState} = this.dealingState;
@@ -666,9 +672,8 @@ class GameRoom {
         }
 
         if (this.canTakeBottom()) {
-            // 直接执行补底，不要调用 checkBidTimeout()
             this.performBottomSupplement();
-            
+
             // 进入埋底阶段
             this.phase = GAME_PHASES.BOTTOMING;
             this.notifyTakeBottom();
@@ -1173,11 +1178,11 @@ class GameRoom {
     startDrawBottom() {
         this.drawBottomState.isActive = true;
         this.drawBottomState.currentAskerSeat = (this.dealingState.bidState.bankerSeat + 1) % 4;
-        this.drawBottomState.askedPlayers = [];
-        this.drawBottomState.skippedTrumpCaller = false;
+        this.drawBottomState.abandonedPlayers = [];
         this.drawBottomState.hasDrawer = false;
         this.drawBottomState.isWaitingBury = false;
         this.drawBottomState.pendingDrawer = null;
+        this.drawBottomState.lastDrawType = null;
 
         console.log('--埋底1', this.drawBottomState)
         console.log('--埋底2', this.dealingState)
@@ -1186,27 +1191,8 @@ class GameRoom {
     }
 
     /**
-     * 判断是否应跳过该玩家
-     */
-    shouldSkipPlayer(seat) {
-        const {bidState} = this.dealingState;
-        const {hasDrawer, askedPlayers} = this.drawBottomState;
-
-        // 非第一局：始终跳过庄家（抢主玩家）
-        if (!this.isFirstRound) {
-            return seat === bidState.bankerSeat;
-        }
-
-        // 第一局：已有人抄底 且 抢主玩家未询问
-        if (hasDrawer && !askedPlayers.includes(bidState.trumpCallerSeat)) {
-            return seat === bidState.trumpCallerSeat;
-        }
-
-        return false;
-    }
-
-    /**
      * 获取玩家可抄底的牌型选项
+     * 根据上次成功抄底的牌型过滤，只返回更大的选项
      */
     getDrawableOptions(seatIndex) {
         const player = Array.from(this.players.values()).find(p => p.seatIndex === seatIndex);
@@ -1214,8 +1200,6 @@ class GameRoom {
 
         const options = [];
         const handCards = player.handCards;
-        const trumpSuit = this.gameRound.trumpSuit;
-        const isNoTrump = this.gameRound.isNoTrump;
 
         // 统计各牌型数量
         const cardCount = {};
@@ -1271,7 +1255,26 @@ class GameRoom {
             }
         }
 
-        return options;
+        // 根据上次抄底的牌型过滤
+        return this.filterOptionsByDrawPriority(options, this.drawBottomState.lastDrawType);
+    }
+
+    /**
+     * 根据抄底优先级过滤选项
+     * 优先级: hearts5_pair > big_joker_pair > small_joker_pair > trump_pair
+     * @param {Array} options - 玩家拥有的可抄底选项
+     * @param {string|null} lastDrawType - 上次成功抄底的牌型
+     * @returns {Array} 过滤后的选项
+     */
+    filterOptionsByDrawPriority(options, lastDrawType) {
+        if (!lastDrawType) return options;
+
+        // 优先级顺序（索引越小表示越大）
+        const priorityOrder = ['hearts5_pair', 'big_joker_pair', 'small_joker_pair', 'trump_pair'];
+        const lastIdx = priorityOrder.indexOf(lastDrawType);
+
+        // 只返回比上次更大的选项
+        return options.filter(opt => priorityOrder.indexOf(opt.type) < lastIdx);
     }
 
     /**
@@ -1291,26 +1294,47 @@ class GameRoom {
      * 询问下一位玩家抄底
      */
     askNextPlayerDrawBottom() {
-        // 检查是否所有玩家都已询问
+        const {abandonedPlayers} = this.drawBottomState;
         const allSeats = [0, 1, 2, 3];
-        const remainingSeats = allSeats.filter(s => !this.drawBottomState.askedPlayers.includes(s));
+        const trumpCallerSeat = this.dealingState.bidState.trumpCallerSeat;
 
-        // 所有人都已经问过
-        if (remainingSeats.length === 0 || this.drawBottomState.currentAskerSeat === -1) {
-            this.finishDrawBottom();
-            return;
+        let currentSeat = this.drawBottomState.currentAskerSeat;
+        let iterations = 0;
+        const maxIterations = 4;
+
+        while (iterations < maxIterations) {
+            iterations++;
+            currentSeat = (currentSeat + 1) % 4;
+            this.drawBottomState.currentAskerSeat = currentSeat;
+
+            // 如果 trumpCallerSeat 已设置
+            if (trumpCallerSeat !== -1) {
+                // 如果轮询到 trumpCallerSeat
+                if (currentSeat === trumpCallerSeat) {
+                    // 检查其他三人是否都已放弃
+                    const otherSeats = allSeats.filter(s => s !== trumpCallerSeat);
+                    if (otherSeats.every(s => abandonedPlayers.includes(s))) {
+                        // 所有人都放弃了，结束抄底
+                        this.finishDrawBottom();
+                        return;
+                    }
+                    // 否则跳过，继续轮询
+                    continue;
+                }
+            }
+
+            // 如果已放弃，跳过
+            if (abandonedPlayers.includes(currentSeat)) {
+                continue;
+            }
+
+            // 找到需要询问的玩家
+            break;
         }
 
-        const currentSeat = this.drawBottomState.currentAskerSeat;
-
-        //TODO 检查是否应跳过该玩家，这里的算法需要检查
-        if (this.shouldSkipPlayer(currentSeat)) {
-            if (!this.drawBottomState.askedPlayers.includes(currentSeat)) {
-                this.drawBottomState.askedPlayers.push(currentSeat);
-            }
-            // 移动到下一位
-            this.drawBottomState.currentAskerSeat = (currentSeat + 1) % 4;
-            this.askNextPlayerDrawBottom();
+        // 如果超过最大迭代次数，结束
+        if (iterations >= maxIterations) {
+            this.finishDrawBottom();
             return;
         }
 
@@ -1318,9 +1342,8 @@ class GameRoom {
         const options = this.getDrawableOptions(currentSeat);
 
         if (options.length === 0) {
-            // 无可抄底牌型，记录并继续
-            this.drawBottomState.askedPlayers.push(currentSeat);
-            this.drawBottomState.currentAskerSeat = (currentSeat + 1) % 4;
+            // 无可抄底牌型，记录为放弃
+            this.drawBottomState.abandonedPlayers.push(currentSeat);
             this.askNextPlayerDrawBottom();
             return;
         }
@@ -1328,7 +1351,6 @@ class GameRoom {
         // 发送询问事件
         const player = Array.from(this.players.values()).find(p => p.seatIndex === currentSeat);
         if (!player) {
-            this.drawBottomState.currentAskerSeat = (currentSeat + 1) % 4;
             this.askNextPlayerDrawBottom();
             return;
         }
@@ -1342,14 +1364,13 @@ class GameRoom {
             currentLevel: this.currentLevel
         });
 
-        // 启动5秒超时
+        // 启动10秒超时
         if (this.drawBottomState.drawTimeout) {
             clearTimeout(this.drawBottomState.drawTimeout);
         }
-        // TODO 询问抄底计时器，每人5s
         this.drawBottomState.drawTimeout = setTimeout(() => {
             this.handleDrawBottomTimeout();
-        }, 5000);
+        }, 10000);
     }
 
     /**
@@ -1363,8 +1384,8 @@ class GameRoom {
             seatIndex: currentSeat
         });
 
-        // 记录已询问
-        this.drawBottomState.askedPlayers.push(currentSeat);
+        // 记录为放弃
+        this.drawBottomState.abandonedPlayers.push(currentSeat);
 
         // 继续询问下一位
         this.drawBottomState.currentAskerSeat = (currentSeat + 1) % 4;
@@ -1395,12 +1416,21 @@ class GameRoom {
         player.handCards.push(...bottomCards);
 
         // 计算新主花色
-        const {newSuit, isNoTrump} = this.calculateNewMainSuit(drawType, chosenSuit);
+        const {newSuit, isNoTrump} = this.calculateNewMainSuit(drawType, chosenSuit, cards);
 
         // 更新主花色
         this.gameRound.trumpSuit = newSuit;
         this.gameRound.isNoTrump = isNoTrump;
         this.gameRound.bottomCards = cards; // 抄底使用的牌作为新底牌
+
+        // 更新 dealingState.bidState 中的主花色信息
+        this.dealingState.bidState.trumpSuit = newSuit;
+        this.dealingState.bidState.isNoTrump = isNoTrump;
+        this.dealingState.bidState.trumpCallerSuit = newSuit;
+        this.dealingState.bidState.trumpCallerSeat = player.seatIndex;
+
+        // 记录上次成功抄底的牌型
+        this.drawBottomState.lastDrawType = drawType;
 
         // 标记已有玩家抄底
         this.drawBottomState.hasDrawer = true;
@@ -1465,22 +1495,22 @@ class GameRoom {
 
         switch (drawType) {
             case 'big_joker_pair':
-                if (c1.rank === 'big' && c2.rank === 'big') {
-                    return {valid: true};
+                if (c1.rank !== 'big' || c2.rank !== 'big') {
+                    return {valid: false, message: '必须是两张大王'};
                 }
-                return {valid: false, message: '必须是两张大王'};
+                break;
 
             case 'small_joker_pair':
-                if (c1.rank === 'small' && c2.rank === 'small') {
-                    return {valid: true};
+                if (c1.rank !== 'small' || c2.rank !== 'small') {
+                    return {valid: false, message: '必须是两张小王'};
                 }
-                return {valid: false, message: '必须是两张小王'};
+                break;
 
             case 'hearts5_pair':
-                if (c1.suit === 'heart' && c2.suit === 'heart' && c1.rank === '5' && c2.rank === '5') {
-                    return {valid: true};
+                if (c1.suit !== 'heart' || c2.suit !== 'heart' || c1.rank !== '5' || c2.rank !== '5') {
+                    return {valid: false, message: '必须是红桃5对'};
                 }
-                return {valid: false, message: '必须是红桃5对'};
+                break;
 
             case 'trump_pair':
                 // 必须是同花色对子
@@ -1495,25 +1525,41 @@ class GameRoom {
                 if ((card.suit === 'heart' && card.rank === '5') || // 红桃5对
                     (card.suit === 'joker' && card.rank === 'big') || // 大王对
                     (card.suit === 'joker' && card.rank === 'small')) { // 小王对
-                    return {valid: true};
+                    // 这些在上面已经处理了，不会走到这里
                 }
 
                 // 本局等级是2，所以同花色对2才满足
                 if (this.currentLevel === 2 && card.rank === '2') {
-                    return {valid: true};
+                    // 符合
+                } else {
+                    return {valid: false, message: '必须是红桃5对、大王对、小王对或同花色对2'};
                 }
-
-                return {valid: false, message: '必须是红桃5对、大王对、小王对或同花色对2'};
+                break;
 
             default:
                 return {valid: false, message: '无效的抄底类型'};
         }
+
+        // 检查是否大于上次抄底的牌型
+        const lastDrawType = this.drawBottomState.lastDrawType;
+        if (lastDrawType) {
+            const priorityOrder = ['hearts5_pair', 'big_joker_pair', 'small_joker_pair', 'trump_pair'];
+            const currentIdx = priorityOrder.indexOf(drawType);
+            const lastIdx = priorityOrder.indexOf(lastDrawType);
+
+            // 索引越小表示越大，如果 currentIdx >= lastIdx 则不够大
+            if (currentIdx >= lastIdx) {
+                return {valid: false, message: '抄底的牌型必须大于上一次抄底的牌型'};
+            }
+        }
+
+        return {valid: true};
     }
 
     /**
      * 计算抄底后的新主花色
      */
-    calculateNewMainSuit(drawType, chosenSuit) {
+    calculateNewMainSuit(drawType, chosenSuit, cards) {
         switch (drawType) {
             case 'big_joker_pair':
                 return {newSuit: null, isNoTrump: true};
@@ -1525,7 +1571,6 @@ class GameRoom {
                 return {newSuit: chosenSuit, isNoTrump: false};
 
             case 'trump_pair':
-                // 直接使用传入的cards参数，而不是依赖pendingDrawer
                 const card = stringToCard(cards[0]);
                 return {newSuit: card.suit, isNoTrump: false};
 
@@ -1539,7 +1584,6 @@ class GameRoom {
      */
     continueDrawBottom() {
         const currentSeat = this.drawBottomState.currentAskerSeat;
-        this.drawBottomState.askedPlayers.push(currentSeat);
         this.drawBottomState.currentAskerSeat = (currentSeat + 1) % 4;
         this.askNextPlayerDrawBottom();
     }
@@ -1603,8 +1647,8 @@ class GameRoom {
             seatIndex: player.seatIndex
         });
 
-        // 记录并继续
-        this.drawBottomState.askedPlayers.push(this.drawBottomState.currentAskerSeat);
+        // 记录为放弃
+        this.drawBottomState.abandonedPlayers.push(this.drawBottomState.currentAskerSeat);
         this.drawBottomState.currentAskerSeat = (this.drawBottomState.currentAskerSeat + 1) % 4;
         this.askNextPlayerDrawBottom();
 

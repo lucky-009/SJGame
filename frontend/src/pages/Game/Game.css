@@ -297,6 +297,16 @@
   min-width: 60px;
 }
 
+/* 红桃、方片显示红色 */
+.red-suit {
+  color: #d00;
+}
+
+/* 操作面板中的红色花色 */
+.action-panel .red-suit {
+  color: #ff4444;
+}
+
 .result-text {
   font-size: 48px;
   font-weight: bold;

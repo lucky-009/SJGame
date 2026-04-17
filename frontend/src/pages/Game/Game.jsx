@@ -111,7 +111,7 @@ import {
     setLeadPlayCardCount
 } from '../../store/gameSlice';
 import {updatePlayers, updatePlayer} from '../../store/roomSlice';
-import {GAME_PHASES, SUITS, TEAMS, SUIT_NAMES, GAME_ACTIONS} from '../../utils/constants';
+import {GAME_PHASES, SUITS, TEAMS, SUIT_NAMES, GAME_ACTIONS, RED_SUITS} from '../../utils/constants';
 import ruleEngine from '../../ruleEngine';
 import Card from '../../components/Card';
 import PlayerInfo from '../../components/PlayerInfo';
@@ -1605,6 +1605,11 @@ class Game extends Component {
             <div className="card-buttons">
                 {uniqueCards.map((cardStr, index) => {
                     const card = this.parseCardString(cardStr);
+                    const suitDisplay = card ? (
+                        <span className={RED_SUITS.includes(card.suit) ? 'red-suit' : ''}>
+                            {SUIT_NAMES[card.suit]}{card.rank}
+                        </span>
+                    ) : cardStr;
                     return (
                         <Button
                             key={index}
@@ -1612,7 +1617,7 @@ class Game extends Component {
                             size="large"
                             onClick={() => onClick(cardStr)}
                         >
-                            {card ? `${SUIT_NAMES[card.suit]}${card.rank}` : cardStr}
+                            {suitDisplay}
                         </Button>
                     );
                 })}
@@ -1645,7 +1650,7 @@ class Game extends Component {
                         size="large"
                         onClick={() => onClick(cardStr)}
                     >
-                        锁庄 {SUIT_NAMES[suit]}
+                        锁庄 <span className={RED_SUITS.includes(suit) ? 'red-suit' : ''}>{SUIT_NAMES[suit]}</span>
                     </Button>
                 ))}
             </div>
@@ -1677,7 +1682,7 @@ class Game extends Component {
                         size="large"
                         onClick={() => onClick(cardStr)}
                     >
-                        锁主 {SUIT_NAMES[suit]}
+                        锁主 <span className={RED_SUITS.includes(suit) ? 'red-suit' : ''}>{SUIT_NAMES[suit]}</span>
                     </Button>
                 ))}
             </div>
@@ -2039,7 +2044,7 @@ class Game extends Component {
                         size="large"
                         onClick={() => this.handleReverseBanker(availableReverseCards.card)}
                     >
-                        反庄 {SUIT_NAMES[availableReverseCards.card.suit]}
+                        反庄 <span className={RED_SUITS.includes(availableReverseCards.card.suit) ? 'red-suit' : ''}>{SUIT_NAMES[availableReverseCards.card.suit]}</span>
                     </Button>
                 )}
 

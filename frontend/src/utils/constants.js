@@ -37,6 +37,9 @@ export const SUIT_NAMES = {
   [SUITS.NONE]: '无主'
 };
 
+// 红色花色（红桃、方片）
+export const RED_SUITS = ['heart', 'diamond'];
+
 // 等级显示名称
 export const RANK_NAMES = {
   '2': '2',
