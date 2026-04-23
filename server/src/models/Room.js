@@ -38,6 +38,23 @@ const roomSchema = new mongoose.Schema({
   levelB: {
     type: Number,
     default: 2
+  },
+  // 守庄状态（是否已守庄成功跳过该等级）
+  levelA_defended_2: {
+    type: Boolean,
+    default: false
+  },
+  levelA_defended_J: {
+    type: Boolean,
+    default: false
+  },
+  levelB_defended_2: {
+    type: Boolean,
+    default: false
+  },
+  levelB_defended_J: {
+    type: Boolean,
+    default: false
   }
 }, {
   timestamps: true

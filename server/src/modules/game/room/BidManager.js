@@ -359,13 +359,13 @@ class BidManager {
             this.room.gameRound.trumpSuit = card.suit;
             this.room.gameRound.level = this.room.currentLevel;
 
-            this.room.gameRound.trumpCall = {
-                caller: userId,
-                suit: card.suit,
-                seatIndex: player.seatIndex,
-                isLocked: false,
-                isReversed: false
-            };
+this.room.gameRound.trumpCall = {
+            caller: userId,
+            suit: card.suit,
+            seatIndex: player.seatIndex,
+            isLocked: true,
+            isReversed: true
+        };
         } else {
             this.room.gameRound.bankerCall.isLocked = true;
         }

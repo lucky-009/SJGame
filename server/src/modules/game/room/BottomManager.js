@@ -194,10 +194,8 @@ class BottomManager {
         return SUIT_LABELS[suit] || suit;
     }
 
-    askNextPlayerDrawBottom() {
+askNextPlayerDrawBottom() {
         const { abandonedPlayers } = this.room.drawBottomState;
-        const allSeats = [0, 1, 2, 3];
-        const trumpCallerSeat = this.room.dealingState.bidState.trumpCallerSeat;
 
         let currentSeat = this.room.drawBottomState.currentAskerSeat;
         let iterations = 0;
@@ -208,21 +206,12 @@ class BottomManager {
             currentSeat = (currentSeat + 1) % 4;
             this.room.drawBottomState.currentAskerSeat = currentSeat;
 
-            if (trumpCallerSeat !== -1) {
-                if (currentSeat === trumpCallerSeat) {
-                    const otherSeats = allSeats.filter(s => s !== trumpCallerSeat);
-                    if (otherSeats.every(s => abandonedPlayers.includes(s))) {
-                        this.finishDrawBottom();
-                        return;
-                    }
-                    continue;
-                }
-            }
-
+            // 如果当前玩家已被放弃，继续询问下一个
             if (abandonedPlayers.includes(currentSeat)) {
                 continue;
             }
 
+            // 如果有待抄底玩家，跳过该玩家（不允许重复抄底）
             const pendingDrawerSeat = this.room.drawBottomState.pendingDrawer?.seatIndex;
             if (pendingDrawerSeat !== undefined && currentSeat === pendingDrawerSeat) {
                 continue;
