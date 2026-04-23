@@ -404,6 +404,14 @@ export const onBottomDrawn = (callback) => {
 };
 
 /**
+ * 拿底牌通知（广播给房间内所有玩家）
+ * 事件: game:bottom_taken
+ */
+export const onBottomTaken = (callback) => {
+  on('game:bottom_taken', callback);
+};
+
+/**
  * 埋底完成
  * 事件: game:bottom_buried
  */
@@ -720,6 +728,7 @@ export default {
   onTrumpLocked,
   onTrumpReversed,
   onBottomDrawn,
+  onBottomTaken,
   onBottomBuried,
   onPlayingStart,
   onCardPlayed,

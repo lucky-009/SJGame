@@ -17,6 +17,7 @@ import {
     onGameOver,
     onPlayingStart,
     onBottomDrawn,
+    onBottomTaken,
     onBottomBuried,
     onBankerCalled,
     onTrumpCalled,
@@ -113,6 +114,17 @@ import {
 import {updatePlayers, updatePlayer} from '../../store/roomSlice';
 import {GAME_PHASES, SUITS, TEAMS, SUIT_NAMES, GAME_ACTIONS, RED_SUITS} from '../../utils/constants';
 import ruleEngine from '../../ruleEngine';
+import { parseCardString, sortHandCards, getSeatPosition } from './utils/gameUtils';
+import { createDealingHandlers } from './handlers/dealingHandlers';
+import { createBiddingHandlers } from './handlers/biddingHandlers';
+import { createPlayingHandlers } from './handlers/playingHandlers';
+import { createDrawBottomHandlers } from './handlers/drawBottomHandlers';
+import { useGameTimer } from './hooks/useGameTimer';
+import HandCards from './components/HandCards';
+import DeskCards from './components/DeskCards';
+import Players from './components/Players';
+import GameInfo from './components/GameInfo';
+import ActionPanel from './components/ActionPanel';
 import Card from '../../components/Card';
 import PlayerInfo from '../../components/PlayerInfo';
 import Timer from '../../components/Timer';
@@ -128,6 +140,16 @@ class Game extends Component {
     constructor(props) {
         super(props);
         this.timerInterval = null;
+        this.drawBottomTimer = null;
+
+        const dealingHandlers = createDealingHandlers(this);
+        const biddingHandlers = createBiddingHandlers(this);
+        const playingHandlers = createPlayingHandlers(this);
+        const drawBottomHandlers = createDrawBottomHandlers(this);
+        const timerHooks = useGameTimer(this);
+
+        Object.assign(this, dealingHandlers, biddingHandlers, playingHandlers, drawBottomHandlers, timerHooks);
+
         this.state = {
             showBidModal: false,
             showBottomModal: false,
@@ -209,6 +231,12 @@ class Game extends Component {
         // 事件: game:bottom_drawn
         onBottomDrawn((data) => {
             this.handleBottomDrawn(data);
+        });
+
+        // 拿底牌通知
+        // 事件: game:bottom_taken
+        onBottomTaken((data) => {
+            this.handleBottomTaken(data);
         });
 
         // 埋底完成
@@ -1066,12 +1094,13 @@ class Game extends Component {
             case GAME_ACTIONS.CALL_BANKER:
             case GAME_ACTIONS.CALL_TRUMP:
                 this.props.setCanCallBanker(isMyTurn);
-                if (handCards) {
-                    this.props.setMyHands(handCards);
-                }
+                // if (handCards) {
+                //     this.props.setMyHands(handCards);
+                // }
                 break;
             case GAME_ACTIONS.BURY_BOTTOM:
                 this.props.setPhase(GAME_PHASES.BOTTOMING);
+                this.props.clearDealingActions();
                 if (handCards) {
                     this.props.setMyHands(handCards);
                 }
@@ -1117,7 +1146,7 @@ class Game extends Component {
         // 将字符串牌转换为 Card 对象
         const parsedCards = cards.map(cardStr => {
             if (typeof cardStr === 'string') {
-                return this.parseCardString(cardStr);
+                return parseCardString(cardStr);
             }
             return cardStr;
         });
@@ -1422,14 +1451,14 @@ class Game extends Component {
         if (selectedCards.length === 0) return;
 
         // 获取排序后的手牌（与选择时的索引对应）
-        const sortedHands = this.sortHandCards(myHands);
+        const sortedHands = sortHandCards(myHands);
 
         // 获取选中的牌，使用排序后的索引
         const selected = selectedCards.map(i => {
             const card = sortedHands[i];
             // 如果是字符串，解析为对象
             if (typeof card === 'string') {
-                return this.parseCardString(card);
+                return parseCardString(card);
             }
             return card;
         });
@@ -1522,6 +1551,7 @@ class Game extends Component {
      * @param {string} cardStr - 牌的字符串表示
      */
     handleBuryCardClick = (index, cardStr) => {
+        console.log('🏴 Game.jsx handleBuryCardClick:', index, 'cardStr:', cardStr, 'type:', typeof cardStr);
         const {buryingSelectedCards} = this.state;
 
         // 使用 index 而不是 cardStr 来判断是否已选中（因为可能有两张相同的牌）
@@ -1558,564 +1588,6 @@ class Game extends Component {
         });
         this.props.setHiddenBottom(selectedCards);
         this.setState({buryingSelectedCards: [], error: ''});
-    };
-
-    /**
-     * 获取座位位置
-     */
-    getSeatPosition = (seatIndex) => {
-        const positions = ['self', 'right', 'opponent', 'left'];
-        const {mySeatIndex} = this.props;
-        const relativeIndex = (seatIndex - mySeatIndex + 4) % 4;
-        return positions[relativeIndex];
-    };
-
-    /**
-     * 将字符串牌转换为 Card 组件需要的对象格式
-     * 例如: "diamond_9" -> { suit: 'diamond', rank: '9', displayName: '♦9' }
-     */
-    parseCardString = (cardStr) => {
-        if (!cardStr) return null;
-
-        const parts = cardStr.split('_');
-        if (parts.length !== 2) return null;
-
-        const [suit, rank] = parts;
-        const displayNames = {
-            'spade': '♠', 'heart': '♥', 'club': '♣', 'diamond': '♦', 'joker': '🃏'
-        };
-
-        return {
-            suit,
-            rank,
-            displayName: suit === 'joker' ? '🃏' : `${displayNames[suit] || ''}${rank}`
-        };
-    };
-
-    /**
-     * 渲染卡片选择按钮
-     */
-    renderCardButtons = (cards, onClick) => {
-        if (!cards || cards.length === 0) return null;
-
-        // 对于抢庄，去重时只保留每个花色的2，因为可能有多个2但不同花色
-        const uniqueCards = [...new Set(cards)];
-
-        return (
-            <div className="card-buttons">
-                {uniqueCards.map((cardStr, index) => {
-                    const card = this.parseCardString(cardStr);
-                    const suitDisplay = card ? (
-                        <span className={RED_SUITS.includes(card.suit) ? 'red-suit' : ''}>
-                            {SUIT_NAMES[card.suit]}{card.rank}
-                        </span>
-                    ) : cardStr;
-                    return (
-                        <Button
-                            key={index}
-                            variant="warning"
-                            size="large"
-                            onClick={() => onClick(cardStr)}
-                        >
-                            {suitDisplay}
-                        </Button>
-                    );
-                })}
-            </div>
-        );
-    };
-
-    /**
-     * 渲染锁庄按钮 - 显示"锁庄+花色"
-     */
-    renderLockBankerButtons = (cards, onClick) => {
-        if (!cards || cards.length === 0) return null;
-
-        const suitToCards = new Map();
-        cards.forEach(cardStr => {
-            const card = this.parseCardString(cardStr);
-            if (card) {
-                if (!suitToCards.has(card.suit)) {
-                    suitToCards.set(card.suit, cardStr);
-                }
-            }
-        });
-
-        return (
-            <div className="card-buttons">
-                {Array.from(suitToCards.entries()).map(([suit, cardStr], index) => (
-                    <Button
-                        key={index}
-                        variant="warning"
-                        size="large"
-                        onClick={() => onClick(cardStr)}
-                    >
-                        锁庄 <span className={RED_SUITS.includes(suit) ? 'red-suit' : ''}>{SUIT_NAMES[suit]}</span>
-                    </Button>
-                ))}
-            </div>
-        );
-    };
-
-    /**
-     * 渲染锁主按钮 - 显示"锁主+花色"
-     */
-    renderLockTrumpButtons = (cards, onClick) => {
-        if (!cards || cards.length === 0) return null;
-
-        const suitToCards = new Map();
-        cards.forEach(cardStr => {
-            const card = this.parseCardString(cardStr);
-            if (card) {
-                if (!suitToCards.has(card.suit)) {
-                    suitToCards.set(card.suit, cardStr);
-                }
-            }
-        });
-
-        return (
-            <div className="card-buttons">
-                {Array.from(suitToCards.entries()).map(([suit, cardStr], index) => (
-                    <Button
-                        key={index}
-                        variant="warning"
-                        size="large"
-                        onClick={() => onClick(cardStr)}
-                    >
-                        锁主 <span className={RED_SUITS.includes(suit) ? 'red-suit' : ''}>{SUIT_NAMES[suit]}</span>
-                    </Button>
-                ))}
-            </div>
-        );
-    };
-
-    /**
-     * 按花色排序手牌
-     * 排序顺序: 方片(♦) -> 梅花(♣) -> 红桃(♥) -> 黑桃(♠) -> 大王 -> 小王
-     * 每种花色内按点数: 2-10,J,Q,K,A
-     */
-    sortHandCards = (hands) => {
-        const suitOrder = {'diamond': 0, 'club': 1, 'heart': 2, 'spade': 3, 'joker': 4};
-        const rankOrder = {
-            '2': 2,
-            '3': 3,
-            '4': 4,
-            '5': 5,
-            '6': 6,
-            '7': 7,
-            '8': 8,
-            '9': 9,
-            '10': 10,
-            'J': 11,
-            'Q': 12,
-            'K': 13,
-            'A': 14,
-            'small': 15,
-            'big': 16
-        };
-
-        return [...hands].sort((a, b) => {
-            const cardA = typeof a === 'string' ? this.parseCardString(a) : a;
-            const cardB = typeof b === 'string' ? this.parseCardString(b) : b;
-
-            const suitA = suitOrder[cardA?.suit] ?? 5;
-            const suitB = suitOrder[cardB?.suit] ?? 5;
-
-            if (suitA !== suitB) {
-                return suitA - suitB;
-            }
-
-            const rankA = rankOrder[cardA?.rank] ?? 0;
-            const rankB = rankOrder[cardB?.rank] ?? 0;
-
-            return rankA - rankB;
-        });
-    };
-
-    /**
-     * 渲染手牌区
-     */
-    renderHandCards = () => {
-        const {myHands, selectedCards, isMyTurn, phase} = this.props;
-
-        // 按花色排序手牌
-        const sortedHands = this.sortHandCards(myHands);
-
-        // 将字符串转换为 Card 对象
-        const parsedHands = sortedHands.map((card, index) => {
-            if (typeof card === 'string') {
-                return {...this.parseCardString(card), id: index};
-            }
-            return {...card, id: index};
-        });
-
-        // 检查是否在埋底阶段
-        const isBuryingPhase = phase === GAME_PHASES.BOTTOMING;
-        const {buryingSelectedCards} = this.state;
-
-        return (
-            <div className="hand-cards">
-                {parsedHands.map((card, index) => {
-                    // 检查是否被选中
-                    const isSelected = isBuryingPhase
-                        ? buryingSelectedCards.some(c => c.index === index)
-                        : selectedCards.includes(index);
-
-                    return (
-                        <Card
-                            key={card.id || index}
-                            card={card}
-                            index={index}
-                            selected={isSelected}
-                            disabled={!isMyTurn}
-                            onClick={isBuryingPhase ? () => this.handleBuryCardClick(index, `${card.suit}_${card.rank}`) : this.handleCardClick}
-                        />
-                    );
-                })}
-            </div>
-        );
-    };
-
-    /**
-     * 渲染桌面牌
-     */
-    renderDeskCards = () => {
-        const {deskCards} = this.props;
-
-        return (
-            <div className="desk-area">
-                {Object.entries(deskCards).map(([seatIndex, cards]) => {
-                    if (!cards || cards.length === 0) return null;
-
-                    const position = this.getSeatPosition(parseInt(seatIndex));
-
-                    return (
-                        <div key={seatIndex} className={`desk-cards desk-${position}`}>
-                            {cards.map((card, i) => (
-                                <Card
-                                    key={i}
-                                    card={card}
-                                    small
-                                />
-                            ))}
-                        </div>
-                    );
-                })}
-            </div>
-        );
-    };
-
-    /**
-     * 渲染玩家信息
-     */
-    renderPlayers = () => {
-        const {players, mySeatIndex, bankerId, turnSeatIndex, levelA, levelB, phase} = this.props;
-
-        // 根据 mySeatIndex 重新排列玩家位置
-        // players 数组按座位号 0,1,2,3 存储，需要把当前玩家(mySeatIndex)固定在底部
-        const getPlayerByRelativePosition = (relativeIndex) => {
-            const seatIndex = (mySeatIndex + relativeIndex) % 4;
-            return players.find(p => p.seatIndex === seatIndex);
-        };
-
-        const playerRight = getPlayerByRelativePosition(1);
-        const playerOpponent = getPlayerByRelativePosition(2);
-        const playerLeft = getPlayerByRelativePosition(3);
-        const playerSelf = getPlayerByRelativePosition(0);
-
-        const getTeam = (seatIndex) => seatIndex % 2 === 0 ? 'A' : 'B';
-
-        return (
-            <div className="players-area">
-                <div className="player-top">
-                    <PlayerInfo
-                        username={playerOpponent?.username || (mySeatIndex === 2 ? this.props.user.username : `玩家${getTeam(2)}队`)}
-                        cardCount={playerOpponent?.cardCount}
-                        isBanker={playerOpponent?.id === bankerId}
-                        team={playerOpponent?.team || getTeam(2)}
-                        level={levelB}
-                        position="opponent"
-                        isTurn={turnSeatIndex === playerOpponent?.seatIndex}
-                        isMyTeam={true}
-                        phase={phase}
-                    />
-                </div>
-
-                <div className="player-left">
-                    <PlayerInfo
-                        username={playerLeft?.username || (mySeatIndex === 3 ? this.props.user.username : `玩家${getTeam(3)}队`)}
-                        cardCount={playerLeft?.cardCount}
-                        isBanker={playerLeft?.id === bankerId}
-                        team={playerLeft?.team || getTeam(3)}
-                        level={levelB}
-                        position="left"
-                        isTurn={turnSeatIndex === playerLeft?.seatIndex}
-                        isMyTeam={false}
-                        phase={phase}
-                    />
-                </div>
-
-                <div className="player-right">
-                    <PlayerInfo
-                        username={playerRight?.username || (mySeatIndex === 1 ? this.props.user.username : `玩家${getTeam(1)}队`)}
-                        cardCount={playerRight?.cardCount}
-                        isBanker={playerRight?.id === bankerId}
-                        team={playerRight?.team || getTeam(1)}
-                        level={levelA}
-                        position="right"
-                        isTurn={turnSeatIndex === playerRight?.seatIndex}
-                        isMyTeam={false}
-                        phase={phase}
-                    />
-                </div>
-
-                <div className="player-bottom">
-                    <PlayerInfo
-                        username={playerSelf?.username || this.props.user.username}
-                        cardCount={this.props.myHands?.length}
-                        isBanker={playerSelf?.id === bankerId}
-                        team={playerSelf?.team || getTeam(mySeatIndex)}
-                        level={levelA}
-                        position="self"
-                        isTurn={turnSeatIndex === mySeatIndex}
-                        isMyTeam={true}
-                        phase={phase}
-                    />
-                </div>
-            </div>
-        );
-    };
-
-    /**
-     * 渲染等级和主花色
-     */
-    renderGameInfo = () => {
-        const {
-            levelA,
-            levelB,
-            mainSuit,
-            currentLevel,
-            bankerTeam,
-            players,
-            bidState,
-            mySeatIndex,
-            teamAScore,
-            teamBScore
-        } = this.props;
-
-        // 根据 seatIndex 查找玩家
-        const getPlayerBySeat = (seatIndex) => {
-            if (seatIndex === undefined || seatIndex < 0) return null;
-            return players.find(p => p.seatIndex === seatIndex);
-        };
-
-        const trumpCaller = getPlayerBySeat(bidState.trumpCallerSeat);
-        const trumpCallerName = bidState.hasTrump && trumpCaller ? trumpCaller.username : null;
-
-        const mainBanker = getPlayerBySeat(bidState.bankerSeat);
-        const mainBankerName = bidState.hasBanker && mainBanker ? mainBanker.username : null;
-
-        // 计算闲家得分（非庄家队伍的得分）
-        const bankerTeamName = bankerTeam || 'A';
-        const idleTeamScore = bankerTeamName === 'A' ? teamBScore : teamAScore;
-
-        return (
-            <div className="game-info">
-                <div className={`team-level team-A`}>
-                    <span className="team-name">红队(A):</span>
-                    <span className="level">{levelA}</span>
-                </div>
-
-                <div className="game-center-info">
-                    <div className="info-row">
-                        <div className="info-item">
-                            <span className="label">等级:</span>
-                            <span className="value">{currentLevel}</span>
-                        </div>
-                        <div className="info-item">
-                            <span className="label">主:</span>
-                            <span className={`suit-icon ${mainSuit}`}>
-                                {mainSuit === SUITS.NONE ? '无主' : SUIT_NAMES[mainSuit]}
-                            </span>
-                        </div>
-                        {trumpCallerName && (
-                            <div className="info-item">
-                                <span className="label">来源:</span>
-                                <span className="value">{trumpCallerName}</span>
-                            </div>
-                        )}
-                    </div>
-                    <div className="info-row">
-                        <div className="info-item">
-                            <span className="label">台上:</span>
-                            <span className="value">{bankerTeamName}队</span>
-                        </div>
-                        <div className="info-item">
-                            <span className="label">打底:</span>
-                            <span
-                                className="value">{bidState.bankerSeat >= 0 ? mainBankerName : '-'}</span>
-                        </div>
-                        <div className="info-item score">
-                            <span className="label">闲家得分:</span>
-                            <span className="value">{idleTeamScore}</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div className={`team-level team-B`}>
-                    <span className="team-name">蓝队(B):</span>
-                    <span className="level">{levelB}</span>
-                </div>
-            </div>
-        );
-    };
-
-    /**
-     * 渲染操作面板
-     */
-    renderActionPanel = () => {
-        const {
-            phase,
-            isMyTurn,
-            canCallBanker,
-            canCallTrump,
-            canLockBanker,
-            canReverseBanker,
-            canLockTrump,
-            canReverseTrump,
-            selectedCards,
-            availableBankerCards,
-            availableTrumpCards,
-            availableReverseCards,
-            drawBottom,
-            leadPlayCardCount
-        } = this.props;
-        const {error, warnning, currentAction, drawInfo} = this.state;
-
-        // 是否需要限制出牌数量（首家已出牌）
-        const needLimitCount = leadPlayCardCount > 0;
-        // 满足出牌条件的检查
-        const canPlay = isMyTurn &&
-            phase === GAME_PHASES.PLAYING &&
-            selectedCards.length > 0 &&
-            (!needLimitCount || selectedCards.length === leadPlayCardCount);
-
-
-        return (
-            <div className="action-panel">
-                {error && <div className="error-message">{error}</div>}
-                {warnning && <div className="error-message">{warnning}</div>}
-                {phase === GAME_PHASES.PLAYING && isMyTurn && (
-                    <>
-                        <Button
-                            variant="primary"
-                            size="large"
-                            disabled={!canPlay}
-                            onClick={this.handlePlayCards}
-                        >
-                            出牌 {needLimitCount ? `(${selectedCards.length}/${leadPlayCardCount})` : `(${selectedCards.length})`}
-                        </Button>
-
-                        <Button
-                            variant="default"
-                            size="large"
-                            onClick={() => this.props.clearSelection()}
-                            disabled={selectedCards.length === 0}
-                        >
-                            取消
-                        </Button>
-                    </>
-                )}
-
-                {/* 抢庄按钮 - 显示可用卡片选择 */}
-                {(currentAction === GAME_ACTIONS.CALL_BANKER || canCallBanker) && (
-                    this.renderCardButtons(availableBankerCards, (cardStr) => this.handleCallBanker(cardStr))
-                )}
-
-                {/* 锁庄按钮 - 显示"锁庄+花色" */}
-                {canLockBanker && (
-                    this.renderLockBankerButtons(availableBankerCards, (cardStr) => this.handleLockBanker(cardStr))
-                )}
-
-                {/* 反庄按钮 - 显示花色选择 */}
-                {canReverseBanker && availableReverseCards?.card && (
-                    <Button
-                        variant="warning"
-                        size="large"
-                        onClick={() => this.handleReverseBanker(availableReverseCards.card)}
-                    >
-                        反庄 <span className={RED_SUITS.includes(availableReverseCards.card.suit) ? 'red-suit' : ''}>{SUIT_NAMES[availableReverseCards.card.suit]}</span>
-                    </Button>
-                )}
-
-                {/* 抢主按钮 - 显示可用卡片选择 */}
-                {(currentAction === GAME_ACTIONS.CALL_TRUMP || canCallTrump) && (
-                    this.renderCardButtons(availableTrumpCards, (cardStr) => this.handleCallTrump(cardStr))
-                )}
-
-                {/* 锁主按钮 - 显示"锁主+花色" */}
-                {canLockTrump && (
-                    this.renderLockTrumpButtons(availableTrumpCards, (cardStr) => this.handleLockTrump(cardStr))
-                )}
-
-                {/* 反主按钮 - 显示可用卡片选择 */}
-                {canReverseTrump && availableReverseCards?.cards && (
-                    this.renderCardButtons(availableReverseCards.cards, (cardStr) => this.handleReverseTrump(cardStr))
-                )}
-
-                {/* 埋底按钮 - 包括普通埋底和抄底后的埋底 */}
-                {phase === GAME_PHASES.BOTTOMING && isMyTurn && (
-                    <>
-                        {drawInfo && (
-                            <div className="draw-bottom-info">
-                                <span>刚才抄底: {drawInfo.drawCards?.join('')} → 主花色: {drawInfo.mainSuit || '无主'}</span>
-                            </div>
-                        )}
-                        <Button
-                            variant="success"
-                            size="large"
-                            disabled={this.state.buryingSelectedCards.length !== 8}
-                            onClick={this.handleBuryBottom}
-                        >
-                            埋底 ({this.state.buryingSelectedCards.length}/8)
-                        </Button>
-                    </>
-                )}
-
-                {/* 抄底阶段 - 显示可抄底的牌型按钮 */}
-                {drawBottom.isActive && drawBottom.canDraw && drawBottom.drawableOptions && (
-                    <div className="draw-bottom-actions">
-                        <div className="draw-bottom-title">
-                            是否抄底？ 剩余 {drawBottom.timeout} 秒
-                        </div>
-                        {drawBottom.drawableOptions.map((option, idx) => (
-                            <Button
-                                key={idx}
-                                variant="primary"
-                                size="large"
-                                onClick={() => this.handleDrawBottomOptionClick(option)}
-                            >
-                                {option.label}
-                            </Button>
-                        ))}
-                        <Button
-                            variant="default"
-                            size="large"
-                            onClick={this.handleSkipDrawBottom}
-                        >
-                            放弃
-                        </Button>
-                    </div>
-                )}
-
-                {/* 抄底阶段 - 显示其他玩家正在选择 */}
-                {drawBottom.isActive && !drawBottom.canDraw && (
-                    <div className="draw-bottom-waiting">
-                        玩家 {drawBottom.currentAsker} 正在选择是否抄底...
-                    </div>
-                )}
-            </div>
-        );
     };
 
     /**
@@ -2191,13 +1663,38 @@ class Game extends Component {
     };
 
     render() {
-        const {turnTimeLeft, isMyTurn, remainingCards, phase} = this.props;
+        const {turnTimeLeft, isMyTurn, remainingCards, phase, myHands, selectedCards, isMyTurn: isMyTurnProp, bankerId, turnSeatIndex, levelA, levelB, mainSuit, currentLevel, bankerTeam, players, deskCards, bidState, teamAScore, teamBScore, leadPlayCardCount, drawBottom} = this.props;
+        const {error, currentAction, buryingSelectedCards, drawInfo} = this.state;
 
         return (
             <div className="game-page">
-                {this.renderGameInfo()}
-                {this.renderPlayers()}
-                {this.renderDeskCards()}
+                <GameInfo
+                    levelA={levelA}
+                    levelB={levelB}
+                    mainSuit={mainSuit}
+                    currentLevel={currentLevel}
+                    bankerTeam={bankerTeam}
+                    players={players}
+                    bidState={bidState}
+                    mySeatIndex={this.props.mySeatIndex}
+                    teamAScore={teamAScore}
+                    teamBScore={teamBScore}
+                />
+                <Players
+                    players={players}
+                    mySeatIndex={this.props.mySeatIndex}
+                    user={this.props.user}
+                    bankerId={bankerId}
+                    turnSeatIndex={turnSeatIndex}
+                    levelA={levelA}
+                    levelB={levelB}
+                    phase={phase}
+                    myHands={myHands}
+                />
+                <DeskCards
+                    deskCards={deskCards}
+                    mySeatIndex={this.props.mySeatIndex}
+                />
 
                 {this.renderCardDeck()}
 
@@ -2213,10 +1710,48 @@ class Game extends Component {
                 {/*)}*/}
 
                 <div className="hand-area">
-                    {this.renderHandCards()}
+                    <HandCards
+                        myHands={myHands}
+                        selectedCards={selectedCards}
+                        isMyTurn={isMyTurnProp}
+                        phase={phase}
+                        buryingSelectedCards={buryingSelectedCards}
+                        onCardClick={(card, index) => this.handleCardClick(card, index)}
+                        onBuryCardClick={(index, cardStr) => this.handleBuryCardClick(index, cardStr)}
+                    />
                 </div>
 
-                {this.renderActionPanel()}
+                <ActionPanel
+                    phase={phase}
+                    isMyTurn={isMyTurnProp}
+                    canCallBanker={this.props.canCallBanker}
+                    canCallTrump={this.props.canCallTrump}
+                    canLockBanker={this.props.canLockBanker}
+                    canReverseBanker={this.props.canReverseBanker}
+                    canLockTrump={this.props.canLockTrump}
+                    canReverseTrump={this.props.canReverseTrump}
+                    selectedCards={selectedCards}
+                    availableBankerCards={this.props.availableBankerCards}
+                    availableTrumpCards={this.props.availableTrumpCards}
+                    availableReverseCards={this.props.availableReverseCards}
+                    drawBottom={drawBottom}
+                    leadPlayCardCount={leadPlayCardCount}
+                    currentAction={currentAction}
+                    error={error}
+                    buryingSelectedCards={buryingSelectedCards}
+                    drawInfo={drawInfo}
+                    onPlayCards={() => this.handlePlayCards()}
+                    onClearSelection={() => this.props.clearSelection()}
+                    onCallBanker={(cardStr) => this.handleCallBanker(cardStr)}
+                    onLockBanker={(cardStr) => this.handleLockBanker(cardStr)}
+                    onReverseBanker={(card) => this.handleReverseBanker(card)}
+                    onCallTrump={(cardStr) => this.handleCallTrump(cardStr)}
+                    onLockTrump={(cardStr) => this.handleLockTrump(cardStr)}
+                    onReverseTrump={(cardStr) => this.handleReverseTrump(cardStr)}
+                    onBuryBottom={() => this.handleBuryBottom()}
+                    onDrawBottomOptionClick={(option) => this.handleDrawBottomOptionClick(option)}
+                    onSkipDrawBottom={() => this.handleSkipDrawBottom()}
+                />
                 {this.renderRoundResult()}
                 <GameResultModal
                     visible={this.state.showGameResult}
