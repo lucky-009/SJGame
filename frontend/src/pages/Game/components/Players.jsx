@@ -40,6 +40,7 @@ const Players = ({
           isTurn={turnSeatIndex === playerOpponent?.seatIndex}
           isMyTeam={true}
           phase={phase}
+          isDisconnected={playerOpponent?.isDisconnected}
         />
       </div>
 
@@ -54,6 +55,7 @@ const Players = ({
           isTurn={turnSeatIndex === playerLeft?.seatIndex}
           isMyTeam={false}
           phase={phase}
+          isDisconnected={playerLeft?.isDisconnected}
         />
       </div>
 
@@ -68,6 +70,7 @@ const Players = ({
           isTurn={turnSeatIndex === playerRight?.seatIndex}
           isMyTeam={false}
           phase={phase}
+          isDisconnected={playerRight?.isDisconnected}
         />
       </div>
 
@@ -82,6 +85,7 @@ const Players = ({
           isTurn={turnSeatIndex === mySeatIndex}
           isMyTeam={true}
           phase={phase}
+          isDisconnected={playerSelf?.isDisconnected}
         />
       </div>
     </div>

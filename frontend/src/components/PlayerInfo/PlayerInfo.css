@@ -127,6 +127,16 @@
   background-color: #4ecdc4;
 }
 
+/* 离线状态 */
+.player-info.disconnected {
+  opacity: 0.6;
+}
+
+.tag.offline {
+  background-color: #999;
+  color: #333;
+}
+
 /* 统计 */
 .player-stats {
   display: flex;

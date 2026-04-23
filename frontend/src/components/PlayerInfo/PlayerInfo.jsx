@@ -18,6 +18,7 @@ class PlayerInfo extends Component {
    * - level: 当前等级
    * - isTurn: 是否轮到此玩家
    * - isMyTeam: 是否自己的队伍
+   * - isDisconnected: 是否离线
    */
 
   render() {
@@ -32,7 +33,8 @@ class PlayerInfo extends Component {
       isTurn,
       isMyTeam,
       position,
-      phase
+      phase,
+      isDisconnected
     } = this.props;
 
     const classes = [
@@ -40,7 +42,8 @@ class PlayerInfo extends Component {
       `position-${position}`,
       isTurn ? 'turn' : '',
       isMyTeam ? 'my-team' : 'opponent-team',
-      isReady ? 'ready' : ''
+      isReady ? 'ready' : '',
+      isDisconnected ? 'disconnected' : ''
     ].filter(Boolean).join(' ');
 
     return (
@@ -63,6 +66,7 @@ class PlayerInfo extends Component {
             {isHost && <span className="tag host">房主</span>}
             {isBanker && <span className="tag banker">庄</span>}
             {team && <span className={`tag team team-${team}`}>{team}队</span>}
+            {isDisconnected && <span className="tag offline">离线</span>}
           </div>
 
           {/* 等级和手牌数 */}

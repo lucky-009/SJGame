@@ -315,6 +315,22 @@ export const onPlayerLeft = (callback) => {
 };
 
 /**
+ * 玩家离线通知
+ * 事件: room:player_disconnected
+ */
+export const onPlayerDisconnected = (callback) => {
+  on('room:player_disconnected', callback);
+};
+
+/**
+ * 玩家重连恢复通知
+ * 事件: room:player_reconnected
+ */
+export const onPlayerReconnected = (callback) => {
+  on('room:player_reconnected', callback);
+};
+
+/**
  * 房间被解散通知
  * 事件: room:room_dismissed
  */
@@ -719,6 +735,8 @@ export default {
   onPlayerReady,
   onGameStarting,
   onPlayerLeft,
+  onPlayerDisconnected,
+  onPlayerReconnected,
   onDealComplete,
   onYourTurn,
   onBankerCalled,

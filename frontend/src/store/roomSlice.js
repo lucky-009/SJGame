@@ -65,11 +65,26 @@ const roomSlice = createSlice({
       }
     },
     
-    /**
-     * 设置房间状态
+/**
+     * 设置玩家准备状态
      */
-    setRoomStatus: (state, action) => {
-      state.status = action.payload;
+    setPlayerReady: (state, action) => {
+      console.log('setPlayerReady:', playerId, isReady, 'players:', state.players);
+      const player = state.players.find(p => p.userId === playerId || p.id === playerId);
+      if (player) {
+        player.isReady = isReady;
+      }
+    },
+
+    /**
+     * 标记玩家离线
+     */
+    setPlayerDisconnected: (state, action) => {
+      const { playerId, isDisconnected } = action.payload;
+      const player = state.players.find(p => p.userId === playerId || p.id === playerId);
+      if (player) {
+        player.isDisconnected = isDisconnected;
+      }
     },
     
     /**
@@ -122,6 +137,7 @@ export const {
   updatePlayers,
   updatePlayer,
   setPlayerReady,
+  setPlayerDisconnected,
   setRoomStatus,
   setHost,
   clearRoom,

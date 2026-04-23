@@ -51,6 +51,9 @@ import {
     onDrawBottomComplete,
     onDrawBottomFatal,
     onBottomReveal,
+    // 玩家离线/重连事件
+    onPlayerDisconnected,
+    onPlayerReconnected,
     // 客户端发送事件
     playCards,
     callBanker,
@@ -111,7 +114,7 @@ import {
     setRemainingCards,
     setLeadPlayCardCount
 } from '../../store/gameSlice';
-import {updatePlayers, updatePlayer} from '../../store/roomSlice';
+import {updatePlayers, updatePlayer, setPlayerDisconnected} from '../../store/roomSlice';
 import {GAME_PHASES, SUITS, TEAMS, SUIT_NAMES, GAME_ACTIONS, RED_SUITS} from '../../utils/constants';
 import ruleEngine from '../../ruleEngine';
 import { parseCardString, sortHandCards, getSeatPosition } from './utils/gameUtils';
@@ -421,6 +424,20 @@ class Game extends Component {
         // 事件: game:bottom_reveal
         onBottomReveal((data) => {
             this.handleBottomReveal(data);
+        });
+
+        // 玩家离线
+        // 事件: room:player_disconnected
+        onPlayerDisconnected((data) => {
+            const { userId } = data;
+            this.props.setPlayerDisconnected(userId, true);
+        });
+
+        // 玩家重连恢复
+        // 事件: room:player_reconnected
+        onPlayerReconnected((data) => {
+            const { userId } = data;
+            this.props.setPlayerDisconnected(userId, false);
         });
     };
 
@@ -1896,6 +1913,7 @@ const mapDispatchToProps = {
     clearDrawBottomState,
     updatePlayers,
     updatePlayer,
+    setPlayerDisconnected,
     resetGame,
     setRemainingCards,
     setLeadPlayCardCount

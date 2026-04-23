@@ -144,14 +144,29 @@ function setupSocketHandlers(io, gameRoomManager) {
           socket.roomCode = roomCode;
           socket.seatIndex = existingPlayer.seatIndex;
 
-          // 通知其他玩家
-          socket.to(roomCode).emit('room:player_joined', {
-            userId: user._id,
-            username: user.username,
-            seatIndex: existingPlayer.seatIndex,
-            team: existingPlayer.team,
-            isOwner: existingPlayer.isOwner
-          });
+          // 检查是否有离线记录，恢复连接
+          const wasDisconnected = gameRoom.playerManager.reconnect(user._id.toString(), socket.id);
+          if (wasDisconnected) {
+            console.log(`🔄 玩家重连恢复: ${user.username}, socket: ${socket.id}`);
+
+            // 清除断线定时器
+            gameRoom.clearDisconnectTimer(user._id.toString());
+
+            // 广播玩家恢复在线
+            io.to(roomCode).emit('room:player_reconnected', {
+              userId: user._id.toString(),
+              seatIndex: existingPlayer.seatIndex
+            });
+          } else {
+            // 通知其他玩家
+            socket.to(roomCode).emit('room:player_joined', {
+              userId: user._id,
+              username: user.username,
+              seatIndex: existingPlayer.seatIndex,
+              team: existingPlayer.team,
+              isOwner: existingPlayer.isOwner
+            });
+          }
 
           // 发送房间状态
           const players = Array.from(gameRoom.players.values()).map(p => ({
@@ -505,15 +520,52 @@ function setupSocketHandlers(io, gameRoomManager) {
 
     // 断开连接
     socket.on('disconnect', async () => {
-      console.log(`🔌 断开连接: ${socket.id}`);
+      console.log(`🔌 断开连接: ${socket.id}, userId: ${socket.userId}`);
 
       const userId = socketToUser.get(socket.id);
       if (userId) {
         onlineUsers.delete(userId);
         socketToUser.delete(socket.id);
-      }
 
-      // 可以添加断线重连逻辑
+        // 如果在房间中，标记离线状态
+        const roomCode = socket.roomCode;
+        if (roomCode) {
+          const gameRoom = gameRoomManager.getRoom(roomCode);
+          if (gameRoom) {
+            gameRoom.playerManager.setDisconnected(userId, true);
+
+            // 广播玩家离线
+            io.to(roomCode).emit('room:player_disconnected', {
+              userId: userId,
+              seatIndex: socket.seatIndex
+            });
+
+// 设置2分钟定时器，超时后让玩家离开
+            const timeoutId = setTimeout(async () => {
+              console.log(`⏰ 离线超时，玩家离开房间: ${userId}`);
+
+              // 移除玩家
+              if (gameRoom) {
+                gameRoom.removePlayer(userId);
+
+                // 通知其他玩家
+                io.to(roomCode).emit('room:player_left', {
+                  userId: userId,
+                  seatIndex: socket.seatIndex
+                });
+
+                // 检查房间是否为空
+                if (gameRoom.players.size === 0) {
+                  gameRoomManager.removeRoom(roomCode);
+                }
+              }
+            }, 120000);
+
+            // 保存定时器 ID 到 GameRoom
+            gameRoom.setDisconnectTimer(userId, timeoutId);
+          }
+        }
+      }
     });
 
     // 退出登录（清除连接信息）

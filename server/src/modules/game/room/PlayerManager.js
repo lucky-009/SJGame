@@ -38,6 +38,30 @@ class PlayerManager {
         }
     }
 
+    setDisconnected(userId, isDisconnected) {
+        const player = this.room.players.get(userId);
+        if (player) {
+            player.isDisconnected = isDisconnected;
+            player.disconnectedAt = isDisconnected ? Date.now() : null;
+        }
+    }
+
+    reconnect(userId, newSocketId) {
+        const player = this.room.players.get(userId);
+        if (player && player.isDisconnected) {
+            player.socketId = newSocketId;
+            player.isDisconnected = false;
+            player.disconnectedAt = null;
+            return true;
+        }
+        return false;
+    }
+
+    isPlayerDisconnected(userId) {
+        const player = this.room.players.get(userId);
+        return player ? player.isDisconnected : false;
+    }
+
     areAllPlayersReady() {
         if (this.room.players.size < 4) return false;
         return Array.from(this.room.players.values()).every(p => p.isReady);

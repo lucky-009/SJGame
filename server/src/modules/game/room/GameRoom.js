@@ -50,6 +50,9 @@ class GameRoom {
         this.playManager = new PlayManager(this);
         this.dealingManager = new DealingManager(this);
         this.settleManager = new SettleManager(this);
+
+        // 断线定时器 Map: userId -> setTimeout ID
+        this.disconnectTimers = new Map();
     }
 
     addPlayer(userId, username, socketId, seatIndex, team, isOwner) {
@@ -57,6 +60,11 @@ class GameRoom {
     }
 
     removePlayer(userId) {
+        // 清除断线定时器
+        if (this.disconnectTimers.has(userId)) {
+          clearTimeout(this.disconnectTimers.get(userId));
+          this.disconnectTimers.delete(userId);
+        }
         this.playerManager.removePlayer(userId);
     }
 
@@ -66,6 +74,17 @@ class GameRoom {
 
     updateSocketId(userId, socketId) {
         this.playerManager.updateSocketId(userId, socketId);
+    }
+
+    clearDisconnectTimer(userId) {
+        if (this.disconnectTimers.has(userId)) {
+            clearTimeout(this.disconnectTimers.get(userId));
+            this.disconnectTimers.delete(userId);
+        }
+    }
+
+    setDisconnectTimer(userId, timerId) {
+        this.disconnectTimers.set(userId, timerId);
     }
 
     areAllPlayersReady() {
