@@ -247,6 +247,9 @@ class DealingManager {
     async redealCards() {
         this.initDealingState(!this.room.isFirstRound);
 
+        const bottomCards = this.room.deck.slice(100);
+        this.room.gameRound.bottomCards = bottomCards.map(c => this.room.cardToString(c));
+
         this.room.gameRound.phase = GAME_PHASES.DEALING;
         await this.room.gameRound.save();
 
