@@ -372,7 +372,7 @@ class SettleManager {
 
         this.room.playerManager.clearAllHands();
 
-        this.room.dealingManager.initDealingState();
+        this.room.dealingManager.initDealingState(true);
         this.room.bottomManager.initDrawBottomState();
 
         this.room.dealingState.bidState.hasBanker = true;
