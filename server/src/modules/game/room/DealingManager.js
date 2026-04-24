@@ -52,26 +52,12 @@ class DealingManager {
     }
 
     initDealingState(preserveBankerInfo = false) {
-        let savedResponded = null;
         let savedBidState = null;
 
         if (preserveBankerInfo && this.room.dealingState?.bidState?.hasBanker) {
-            savedResponded = {
-                bankerCall: this.room.dealingState.responded.bankerCall,
-                bankerLock: this.room.dealingState.responded.bankerLock,
-                bankerReverse: this.room.dealingState.responded.bankerReverse,
-                trumpCall: this.room.dealingState.responded.trumpCall,
-                trumpLock: this.room.dealingState.responded.trumpLock,
-                trumpReverse: this.room.dealingState.responded.trumpReverse
-            };
             savedBidState = {
                 hasBanker: this.room.dealingState.bidState.hasBanker,
                 bankerSeat: this.room.dealingState.bidState.bankerSeat,
-                bankerSuit: this.room.dealingState.bidState.bankerSuit,
-                hasTrump: this.room.dealingState.bidState.hasTrump,
-                trumpSuit: this.room.dealingState.bidState.trumpSuit,
-                trumpCallerSuit: this.room.dealingState.bidState.trumpCallerSuit,
-                isLocked: this.room.dealingState.bidState.isLocked
             };
         }
 
@@ -81,21 +67,21 @@ class DealingManager {
             currentPlayer: 0,
             dealInterval: null,
             responded: {
-                bankerCall: savedResponded?.bankerCall ?? false,
-                bankerLock: savedResponded?.bankerLock ?? false,
-                bankerReverse: savedResponded?.bankerReverse ?? false,
-                trumpCall: savedResponded?.trumpCall ?? false,
-                trumpLock: savedResponded?.trumpLock ?? false,
-                trumpReverse: savedResponded?.trumpReverse ?? false
+                bankerCall: false,
+                bankerLock: false,
+                bankerReverse: false,
+                trumpCall: false,
+                trumpLock: false,
+                trumpReverse: false
             },
             bidState: {
                 hasBanker: savedBidState?.hasBanker ?? false,
                 bankerSeat: savedBidState?.bankerSeat ?? -1,
-                bankerSuit: savedBidState?.bankerSuit ?? null,
-                hasTrump: savedBidState?.hasTrump ?? false,
-                trumpSuit: savedBidState?.trumpSuit ?? null,
-                trumpCallerSuit: savedBidState?.trumpCallerSuit ?? null,
-                isLocked: savedBidState?.isLocked ?? false
+                bankerSuit: null,
+                hasTrump: false,
+                trumpSuit: null,
+                trumpCallerSuit: null,
+                isLocked: false
             }
         };
     }

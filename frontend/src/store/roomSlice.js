@@ -63,18 +63,7 @@ const roomSlice = createSlice({
       if (player) {
         player.isReady = isReady;
       }
-    },
-    
-/**
-     * 设置玩家准备状态
-     */
-    setPlayerReady: (state, action) => {
-      console.log('setPlayerReady:', playerId, isReady, 'players:', state.players);
-      const player = state.players.find(p => p.userId === playerId || p.id === playerId);
-      if (player) {
-        player.isReady = isReady;
-      }
-    },
+},
 
     /**
      * 标记玩家离线
@@ -93,7 +82,14 @@ const roomSlice = createSlice({
     setHost: (state, action) => {
       state.isHost = action.payload;
     },
-    
+
+    /**
+     * 设置房间状态
+     */
+    setRoomStatus: (state, action) => {
+      state.status = action.payload;
+    },
+
     /**
      * 清除房间信息
      */

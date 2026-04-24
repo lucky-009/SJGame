@@ -171,13 +171,7 @@ export const GAME_ACTIONS = {
 };
 
 // API 基础 URL
-export const API_BASE_URL = 'http://localhost:3000/api';
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api';
 
 // Socket 基础 URL
-export const SOCKET_URL = 'http://localhost:3000';
-
-// // API 基础 URL
-// export const API_BASE_URL = 'http://47.77.221.30:3000/api';
-//
-// // Socket 基础 URL
-// export const SOCKET_URL = 'http://47.77.221.30:3000';
+export const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3000';
