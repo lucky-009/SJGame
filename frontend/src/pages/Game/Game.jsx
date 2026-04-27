@@ -164,7 +164,8 @@ class Game extends Component {
             showBottomReveal: false,
             bottomRevealData: null,
             showGameResult: false,
-            gameResultData: null
+            gameResultData: null,
+            customOrder: null // 拖拽排序自定义顺序
         };
     }
 
@@ -1480,21 +1481,13 @@ class Game extends Component {
             return card;
         });
 
-        // 校验出牌
+        // 校验出牌张数（规则校验移至后端）
         const leadCards = this.props.deskCards[leadSeatIndex] || [];
-        const validation = ruleEngine.checkValid(
-            selected,
-            leadCards,
-            myHands,
-            leadSuit,
-            mainSuit,
-            currentLevel
-        );
-
-        if (!validation.valid) {
-            this.setState({error: validation.error});
-            return;
-        }
+        // if (leadCards.length > 0 && selected.length !== leadCards.length) {
+        //     this.setState({error: `出牌张数必须与首家相同（${leadCards.length}张）`});
+        //     return;
+        // }
+        // TODO: 后端校验规则，前端只校验张数
 
         // 发送出牌，确保是字符串格式
         const cardStrs = selected.map(c => {
@@ -1680,7 +1673,7 @@ class Game extends Component {
     };
 
     render() {
-        const {turnTimeLeft, isMyTurn, remainingCards, phase, myHands, selectedCards, isMyTurn: isMyTurnProp, bankerId, turnSeatIndex, levelA, levelB, mainSuit, currentLevel, bankerTeam, players, deskCards, bidState, teamAScore, teamBScore, leadPlayCardCount, drawBottom} = this.props;
+        const {phase, myHands, selectedCards, isMyTurn: isMyTurnProp, bankerId, turnSeatIndex, levelA, levelB, mainSuit, currentLevel, bankerTeam, players, deskCards, bidState, teamAScore, teamBScore, leadPlayCardCount, drawBottom} = this.props;
         const {error, currentAction, buryingSelectedCards, drawInfo} = this.state;
 
         return (
@@ -1717,14 +1710,6 @@ class Game extends Component {
 
                 {this.renderDealStatus()}
 
-                {/*{isMyTurn && (*/}
-                {/*    <div className="timer-container">*/}
-                {/*        <Timer*/}
-                {/*            seconds={turnTimeLeft}*/}
-                {/*            isActive={isMyTurn}*/}
-                {/*        />*/}
-                {/*    </div>*/}
-                {/*)}*/}
 
                 <div className="hand-area">
                     <HandCards
@@ -1735,6 +1720,8 @@ class Game extends Component {
                         buryingSelectedCards={buryingSelectedCards}
                         onCardClick={(card, index) => this.handleCardClick(card, index)}
                         onBuryCardClick={(index, cardStr) => this.handleBuryCardClick(index, cardStr)}
+                        customOrder={this.state.customOrder}
+                        onOrderChange={(order) => this.setState({ customOrder: order })}
                     />
                 </div>
 

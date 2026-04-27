@@ -43,20 +43,13 @@ export const createGameActions = (component) => ({
       return card;
     });
 
-    const leadCards = deskCards[leadSeatIndex] || [];
-    const validation = ruleEngine.checkValid(
-      selected,
-      leadCards,
-      myHands,
-      leadSuit,
-      mainSuit,
-      currentLevel
-    );
-
-    if (!validation.valid) {
-      component.setState({ error: validation.error });
-      return;
-    }
+    // 校验出牌张数（规则校验移至后端）
+    // const leadCards = deskCards[leadSeatIndex] || [];
+    // if (leadCards.length > 0 && selected.length !== leadCards.length) {
+    //     component.setState({ error: `出牌张数必须与首家相同（${leadCards.length}张）` });
+    //     return;
+    // }
+    // TODO: 后端校验规则，前端只校验张数
 
     const cardStrs = cardsToStrings(selected);
     playCards(cardStrs);
