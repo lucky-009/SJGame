@@ -97,6 +97,7 @@ function setupSocketHandlers(io, gameRoomManager) {
     // 加入房间
     socket.on('room:join', async (data, callback) => {
       try {
+        console.log(`[事件] room:join - user: ${socket.username}`, { payload: data });
         const { roomCode } = data;
 
         // 查找房间
@@ -275,6 +276,7 @@ function setupSocketHandlers(io, gameRoomManager) {
     // 玩家准备
     socket.on('game:ready', async (data, callback) => {
       try {
+        console.log(`[事件] game:ready - user: ${socket.username}`, { payload: data });
         const { roomCode, isReady } = data;
         const gameRoom = gameRoomManager.getRoom(roomCode);
 
@@ -337,6 +339,7 @@ function setupSocketHandlers(io, gameRoomManager) {
 
     // 抢庄
     socket.on('game:call_banker', async (data, callback) => {
+      console.log(`[事件] game:call_banker - user: ${socket.username}`, { payload: data });
       const gameRoom = gameRoomManager.getRoom(socket.roomCode);
       if (!gameRoom) {
         return callback({ success: false, message: '游戏房间不存在' });
@@ -348,6 +351,7 @@ function setupSocketHandlers(io, gameRoomManager) {
 
     // 锁庄
     socket.on('game:lock_banker', async (data, callback) => {
+      console.log(`[事件] game:lock_banker - user: ${socket.username}`, { payload: data });
       const gameRoom = gameRoomManager.getRoom(socket.roomCode);
       if (!gameRoom) {
         return callback({ success: false, message: '游戏房间不存在' });
@@ -359,6 +363,7 @@ function setupSocketHandlers(io, gameRoomManager) {
 
     // 反庄
     socket.on('game:reverse_banker', async (data, callback) => {
+      console.log(`[事件] game:reverse_banker - user: ${socket.username}`, { payload: data });
       const gameRoom = gameRoomManager.getRoom(socket.roomCode);
       if (!gameRoom) {
         return callback({ success: false, message: '游戏房间不存在' });
@@ -370,6 +375,7 @@ function setupSocketHandlers(io, gameRoomManager) {
 
     // 抢主色
     socket.on('game:call_trump', async (data, callback) => {
+      console.log(`[事件] game:call_trump - user: ${socket.username}`, { payload: data });
       const gameRoom = gameRoomManager.getRoom(socket.roomCode);
       if (!gameRoom) {
         return callback({ success: false, message: '游戏房间不存在' });
@@ -381,6 +387,7 @@ function setupSocketHandlers(io, gameRoomManager) {
 
     // 锁主色
     socket.on('game:lock_trump', async (data, callback) => {
+      console.log(`[事件] game:lock_trump - user: ${socket.username}`, { payload: data });
       const gameRoom = gameRoomManager.getRoom(socket.roomCode);
       if (!gameRoom) {
         return callback({ success: false, message: '游戏房间不存在' });
@@ -392,6 +399,7 @@ function setupSocketHandlers(io, gameRoomManager) {
 
     // 反主色
     socket.on('game:reverse_trump', async (data, callback) => {
+      console.log(`[事件] game:reverse_trump - user: ${socket.username}`, { payload: data });
       const gameRoom = gameRoomManager.getRoom(socket.roomCode);
       if (!gameRoom) {
         return callback({ success: false, message: '游戏房间不存在' });
@@ -403,6 +411,7 @@ function setupSocketHandlers(io, gameRoomManager) {
 
     // 埋底
     socket.on('game:bury_bottom', async (data, callback) => {
+      console.log(`[事件] game:bury_bottom - user: ${socket.username}`, { payload: data });
       const gameRoom = gameRoomManager.getRoom(socket.roomCode);
       if (!gameRoom) {
         return callback({ success: false, message: '游戏房间不存在' });
@@ -414,6 +423,7 @@ function setupSocketHandlers(io, gameRoomManager) {
 
     // 抄底
     socket.on('game:take_bottom', async (data, callback) => {
+      console.log(`[事件] game:take_bottom - user: ${socket.username}`, { payload: data });
       const gameRoom = gameRoomManager.getRoom(socket.roomCode);
       if (!gameRoom) {
         return callback({ success: false, message: '游戏房间不存在' });
@@ -425,6 +435,7 @@ function setupSocketHandlers(io, gameRoomManager) {
 
     // 放弃抄底
     socket.on('game:skip_draw_bottom', async (data, callback) => {
+      console.log(`[事件] game:skip_draw_bottom - user: ${socket.username}`, { payload: data });
       const gameRoom = gameRoomManager.getRoom(socket.roomCode);
       if (!gameRoom) {
         return callback({ success: false, message: '游戏房间不存在' });
@@ -436,6 +447,7 @@ function setupSocketHandlers(io, gameRoomManager) {
 
     // 出牌
     socket.on('game:play_cards', async (data, callback) => {
+      console.log(`[事件] game:play_cards - user: ${socket.username}`, { payload: data });
       const gameRoom = gameRoomManager.getRoom(socket.roomCode);
       if (!gameRoom) {
         return callback({ success: false, message: '游戏房间不存在' });
@@ -448,6 +460,7 @@ function setupSocketHandlers(io, gameRoomManager) {
     // 离开房间/解散房间
     socket.on('room:leave', async (data, callback) => {
       try {
+        console.log(`[事件] room:leave - user: ${socket.username}`, { payload: data });
         const { roomCode, isOwner } = data;
         const gameRoom = gameRoomManager.getRoom(roomCode);
         const room = await Room.findOne({ roomCode });
