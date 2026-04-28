@@ -792,7 +792,7 @@ class Game extends Component {
         });
 
         // 启动倒计时
-        this.startDrawBottomTimer(timeout);
+        // this.startDrawBottomTimer(timeout);
     };
 
     /**
@@ -1484,43 +1484,6 @@ class Game extends Component {
         });
         playCards(cardStrs);
 
-        this.props.clearSelection();
-        this.setState({error: ''});
-    };
-
-    /**
-     * 处理出牌
-     */
-    handlePlayCards = () => {
-        const {selectedCards, myHands, leadSeatIndex} = this.props;
-
-        if (selectedCards.length === 0) return;
-
-        // selectedCards 存储的是原始手牌的原始索引，直接从 myHands 取牌
-        const selected = selectedCards.map(i => {
-            const card = myHands[i];
-            if (typeof card === 'string') {
-                return parseCardString(card);
-            }
-            return card;
-        });
-
-        // 校验出牌张数（规则校验移至后端）
-        const leadCards = this.props.deskCards[leadSeatIndex] || [];
-        // if (leadCards.length > 0 && selected.length !== leadCards.length) {
-        //     this.setState({error: `出牌张数必须与首家相同（${leadCards.length}张）`});
-        //     return;
-        // }
-        // TODO: 后端校验规则，前端只校验张数
-
-        // 发送出牌，确保是字符串格式
-        const cardStrs = selected.map(c => {
-            if (typeof c === 'string') return c;
-            return `${c.suit}_${c.rank}`;
-        });
-        playCards(cardStrs);
-
-        // 清除选中
         this.props.clearSelection();
         this.setState({error: ''});
     };

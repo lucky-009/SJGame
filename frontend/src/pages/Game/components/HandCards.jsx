@@ -47,7 +47,6 @@ const HandCards = ({
           <div
             key={card.cardStr + index}
             className={`card-wrapper ${isSelected ? 'selected' : ''}`}
-            onClick={() => handleClick(card, index, isBuryingPhase)}
           >
             <Card
               card={card}
