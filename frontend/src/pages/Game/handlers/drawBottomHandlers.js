@@ -157,41 +157,6 @@ export const createDrawBottomHandlers = (component) => ({
     updatePlayersCardCount(props, playerCardCounts);
   },
 
-  handleDrawBottomOptionClick: (option) => {
-    const { type, cards } = option;
-    const { props } = component;
-
-    if (type === 'hearts5_pair') {
-      const suit = window.prompt('选择主花色 (spade/heart/club/diamond):', 'spade');
-      if (suit) {
-        takeBottom(type, suit, cards).then(() => {
-          props.setDrawBottomState({
-            canDraw: false,
-            isMyTurn: false
-          });
-        }).catch(err => {
-          component.setState({
-            error: err.message
-          });
-        });
-      }
-    } else {
-      takeBottom(type, null, cards).then(() => {
-        props.setDrawBottomState({
-          canDraw: false,
-          isMyTurn: false
-        });
-      }).catch(err => {
-        component.setState({
-          error: err.message
-        });
-      });
-    }
-  },
-
-  handleSkipDrawBottom: () => {
-    skipDrawBottom();
-  }
 });
 
 export default { createDrawBottomHandlers };

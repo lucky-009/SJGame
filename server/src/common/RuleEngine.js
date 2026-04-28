@@ -58,14 +58,18 @@ function analyzePlayPattern(cards, trumpSuit, isNoTrump, currentLevel) {
         suitGroups[card.suit].push(card);
     }
 
-    // 快速检查：非全主 + 多花色 = 贴牌（直接返回）
     const isAllTrump = cards.every(card =>
         isTrump(card, trumpSuit, isNoTrump, currentLevel)
     );
     console.log('isAllTrump:', isAllTrump);
 
-    if (!isAllTrump && Object.keys(suitGroups).length > 1) {
-        console.log('非全主+多花色= 贴牌');
+    // 检查是否包含固定主（非全主情况下）
+    const hasFixedTrump = cards.some(card => isFixedTrump(card, currentLevel));
+
+    // 情况1: 非全主 + 多花色 = 贴牌
+    // 情况2: 非全主 + 包含固定主 = 贴牌（新增TODO）
+    if (!isAllTrump && (Object.keys(suitGroups).length > 1 || hasFixedTrump)) {
+        console.log('贴牌判断: 多花色=', Object.keys(suitGroups).length > 1, ', 包含固定主=', hasFixedTrump);
         return {
             isValid: true,
             isDiscard: true,

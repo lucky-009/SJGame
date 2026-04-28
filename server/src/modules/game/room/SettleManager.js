@@ -377,7 +377,6 @@ class SettleManager {
 
         this.room.dealingState.bidState.hasBanker = true;
         this.room.dealingState.bidState.bankerSeat = newBankerSeat;
-        this.room.dealingState.responded.bankerCall = true;
 
         this.room.gameRound = round;
         this.room.phase = GAME_PHASES.DEALING;

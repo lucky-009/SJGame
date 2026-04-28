@@ -2,8 +2,8 @@
  * 投标管理器 - 处理抢庄/锁庄/反庄、抢主/锁主/反主
  */
 
-const { getLevelRank } = require('../../../common/CardUtils');
-const { TRUMP_PRIORITY_ORDER } = require('./constants');
+const {getLevelRank} = require('../../../common/CardUtils');
+const {TRUMP_PRIORITY_ORDER} = require('./constants');
 
 class BidManager {
     constructor(room) {
@@ -11,12 +11,12 @@ class BidManager {
     }
 
     checkDealingEvents(player, card) {
-        const { bidState, responded } = this.room.dealingState;
+        const {bidState, responded} = this.room.dealingState;
         const levelRank = getLevelRank(this.room.currentLevel);
-        const { cardToString } = this.room.CardUtils;
+        const {cardToString} = this.room.CardUtils;
 
         if (this.room.isFirstRound && !bidState.hasBanker) {
-            if (card.rank === '2' && !responded.bankerCall) {
+            if (card.rank === '2') {
                 const sameSuit2s = player.handCards.filter(c => c.suit === card.suit && c.rank === '2');
                 if (sameSuit2s.length >= 2) {
                     const availableCards = sameSuit2s.map(c => cardToString(c));
@@ -64,7 +64,7 @@ class BidManager {
         }
 
         if (!this.room.isFirstRound && !bidState.hasTrump) {
-            if (card.rank === levelRank && !responded.trumpCall) {
+            if (card.rank === levelRank) {
                 const sameSuitLevelCards = player.handCards.filter(c => c.suit === card.suit && c.rank === levelRank);
                 if (sameSuitLevelCards.length >= 2) {
                     const availableCards = sameSuitLevelCards.map(c => cardToString(c));
@@ -118,17 +118,17 @@ class BidManager {
 
         const hearts5 = handCards.filter(c => c.suit === 'heart' && c.rank === '5');
         if (hearts5.length >= 2) {
-            pairs.push({ rank: '5', cards: hearts5.slice(0, 2), priority: 1 });
+            pairs.push({rank: '5', cards: hearts5.slice(0, 2), priority: 1});
         }
 
         const bigJokers = handCards.filter(c => c.rank === 'big');
         if (bigJokers.length >= 2) {
-            pairs.push({ rank: 'big', cards: bigJokers.slice(0, 2), priority: 2 });
+            pairs.push({rank: 'big', cards: bigJokers.slice(0, 2), priority: 2});
         }
 
         const smallJokers = handCards.filter(c => c.rank === 'small');
         if (smallJokers.length >= 2) {
-            pairs.push({ rank: 'small', cards: smallJokers.slice(0, 2), priority: 3 });
+            pairs.push({rank: 'small', cards: smallJokers.slice(0, 2), priority: 3});
         }
 
         return pairs.sort((a, b) => a.priority - b.priority);
@@ -142,7 +142,7 @@ class BidManager {
     }
 
     broadcastBidState() {
-        const { bidState } = this.room.dealingState;
+        const {bidState} = this.room.dealingState;
 
         let trumpCallerSeat = -1;
         let mainSuit = bidState.trumpSuit;
@@ -175,9 +175,9 @@ class BidManager {
     }
 
     canTakeBottom() {
-        const { bidState } = this.room.dealingState;
+        const {bidState} = this.room.dealingState;
         if (this.room.isFirstRound) {
-            return bidState.hasBanker && bidState.isLocked;
+            return bidState.hasBanker || bidState.isLocked;
         } else {
             return bidState.hasBanker && bidState.hasTrump;
         }
@@ -195,7 +195,7 @@ class BidManager {
     }
 
     notifyWaitForOperation() {
-        const { bidState } = this.room.dealingState;
+        const {bidState} = this.room.dealingState;
         let waitType = [];
 
         if (this.room.isFirstRound) {
@@ -243,7 +243,7 @@ class BidManager {
         if (this.room.phase !== 'dealEnd') {
             return;
         }
-        const { bidState } = this.room.dealingState;
+        const {bidState} = this.room.dealingState;
 
         this.room.io.to(this.room.roomCode).emit('game:bid_timeout', {
             bidState: {
@@ -263,16 +263,16 @@ class BidManager {
     async handleCallBanker(userId, cardStr) {
         const player = this.room.playerManager.getPlayer(userId);
         if (!player) {
-            return { success: false, message: '玩家不存在' };
+            return {success: false, message: '玩家不存在'};
         }
 
-        if (this.room.dealingState.responded.bankerCall) {
-            return { success: false, message: '已有玩家抢庄', code: 'BID_REJECTED' };
+        if (this.room.dealingState.bidState.hasBanker) {
+            return {success: false, message: '已有玩家抢庄', code: 'BID_REJECTED'};
         }
 
         const card = this.room.stringToCard(cardStr);
         if (card.rank !== '2') {
-            return { success: false, message: '抢庄必须使用2' };
+            return {success: false, message: '抢庄必须使用2'};
         }
 
         this.room.dealingState.responded.bankerCall = true;
@@ -315,26 +315,32 @@ class BidManager {
         });
 
         this.broadcastBidState();
-        return { success: true };
+        if (this.room.bidTimeout) {
+            clearTimeout(this.room.bidTimeout);
+            this.room.bidTimeout = null;
+        }
+
+        this.checkAndTriggerTakeBottom();
+        return {success: true};
     }
 
     async handleLockBanker(userId, cardStr) {
         const player = this.room.playerManager.getPlayer(userId);
         if (!player) {
-            return { success: false, message: '玩家不存在' };
+            return {success: false, message: '玩家不存在'};
         }
 
         if (this.room.dealingState.bidState.isLocked) {
-            return { success: false, message: '庄/主已锁定', code: 'BID_REJECTED' };
+            return {success: false, message: '庄/主已锁定', code: 'BID_REJECTED'};
         }
 
         if (this.room.dealingState.responded.bankerLock) {
-            return { success: false, message: '已有玩家锁庄', code: 'BID_REJECTED' };
+            return {success: false, message: '已有玩家锁庄', code: 'BID_REJECTED'};
         }
 
         const card = this.room.stringToCard(cardStr);
         if (!card) {
-            return { success: false, message: '无效的牌' };
+            return {success: false, message: '无效的牌'};
         }
 
         this.room.dealingState.responded.bankerLock = true;
@@ -359,13 +365,13 @@ class BidManager {
             this.room.gameRound.trumpSuit = card.suit;
             this.room.gameRound.level = this.room.currentLevel;
 
-this.room.gameRound.trumpCall = {
-            caller: userId,
-            suit: card.suit,
-            seatIndex: player.seatIndex,
-            isLocked: true,
-            isReversed: true
-        };
+            this.room.gameRound.trumpCall = {
+                caller: userId,
+                suit: card.suit,
+                seatIndex: player.seatIndex,
+                isLocked: true,
+                isReversed: true
+            };
         } else {
             this.room.gameRound.bankerCall.isLocked = true;
         }
@@ -386,26 +392,26 @@ this.room.gameRound.trumpCall = {
 
         this.checkAndTriggerTakeBottom();
 
-        return { success: true };
+        return {success: true};
     }
 
     async handleReverseBanker(userId, cardStr) {
         const player = this.room.playerManager.getPlayer(userId);
         if (!player) {
-            return { success: false, message: '玩家不存在' };
+            return {success: false, message: '玩家不存在'};
         }
 
         if (this.room.dealingState.bidState.isLocked) {
-            return { success: false, message: '庄/主已锁定', code: 'BID_REJECTED' };
+            return {success: false, message: '庄/主已锁定', code: 'BID_REJECTED'};
         }
 
         if (this.room.dealingState.responded.bankerReverse) {
-            return { success: false, message: '已有玩家反庄', code: 'BID_REJECTED' };
+            return {success: false, message: '已有玩家反庄', code: 'BID_REJECTED'};
         }
 
         const card = this.room.stringToCard(cardStr);
         if (!card) {
-            return { success: false, message: '无效的卡牌', code: 'INVALID_CARD' };
+            return {success: false, message: '无效的卡牌', code: 'INVALID_CARD'};
         }
 
         this.room.dealingState.responded.bankerReverse = true;
@@ -453,24 +459,24 @@ this.room.gameRound.trumpCall = {
 
         this.checkAndTriggerTakeBottom();
 
-        return { success: true };
+        return {success: true};
     }
 
     async handleCallTrump(userId, cardStr) {
         const player = this.room.playerManager.getPlayer(userId);
         if (!player) {
-            return { success: false, message: '玩家不存在' };
+            return {success: false, message: '玩家不存在'};
         }
 
-        if (this.room.dealingState.responded.trumpCall) {
-            return { success: false, message: '已有玩家抢主', code: 'BID_REJECTED' };
+        if (this.room.dealingState.bidState.hasTrump) {
+            return {success: false, message: '已有玩家抢主', code: 'BID_REJECTED'};
         }
 
         const card = this.room.stringToCard(cardStr);
         const levelRank = getLevelRank(this.room.currentLevel);
 
         if (card.rank !== levelRank) {
-            return { success: false, message: `抢主必须使用${levelRank}` };
+            return {success: false, message: `抢主必须使用${levelRank}`};
         }
 
         this.room.dealingState.responded.trumpCall = true;
@@ -505,21 +511,21 @@ this.room.gameRound.trumpCall = {
 
         this.checkAndTriggerTakeBottom();
 
-        return { success: true };
+        return {success: true};
     }
 
     async handleLockTrump(userId, cardStr) {
         const player = this.room.playerManager.getPlayer(userId);
         if (!player) {
-            return { success: false, message: '玩家不存在' };
+            return {success: false, message: '玩家不存在'};
         }
 
         if (this.room.dealingState.bidState.isLocked) {
-            return { success: false, message: '主已锁定', code: 'BID_REJECTED' };
+            return {success: false, message: '主已锁定', code: 'BID_REJECTED'};
         }
 
         if (this.room.dealingState.responded.trumpLock) {
-            return { success: false, message: '已有玩家锁主', code: 'BID_REJECTED' };
+            return {success: false, message: '已有玩家锁主', code: 'BID_REJECTED'};
         }
 
         const card = this.room.stringToCard(cardStr);
@@ -569,21 +575,21 @@ this.room.gameRound.trumpCall = {
 
         this.checkAndTriggerTakeBottom();
 
-        return { success: true };
+        return {success: true};
     }
 
     async handleReverseTrump(userId, cardStr) {
         const player = this.room.playerManager.getPlayer(userId);
         if (!player) {
-            return { success: false, message: '玩家不存在' };
+            return {success: false, message: '玩家不存在'};
         }
 
         if (this.room.dealingState.bidState.isLocked) {
-            return { success: false, message: '主已锁定', code: 'BID_REJECTED' };
+            return {success: false, message: '主已锁定', code: 'BID_REJECTED'};
         }
 
         if (this.room.dealingState.responded.trumpReverse) {
-            return { success: false, message: '已有玩家反主', code: 'BID_REJECTED' };
+            return {success: false, message: '已有玩家反主', code: 'BID_REJECTED'};
         }
 
         const card = this.room.stringToCard(cardStr);
@@ -635,11 +641,11 @@ this.room.gameRound.trumpCall = {
 
         this.checkAndTriggerTakeBottom();
 
-        return { success: true };
+        return {success: true};
     }
 
     recheckDealingEvents() {
-        const { bidState, responded } = this.room.dealingState;
+        const {bidState, responded} = this.room.dealingState;
         const levelRank = getLevelRank(this.room.currentLevel);
 
         for (const player of this.room.playerManager.getAllPlayers()) {
@@ -654,7 +660,7 @@ this.room.gameRound.trumpCall = {
                                     seatIndex: player.seatIndex,
                                     availableCards
                                 });
-                            } else if (!responded.bankerCall) {
+                            } else if (!bidState.hasBanker) {
                                 const availableCards = player.handCards
                                     .filter(c => c.rank === '2')
                                     .map(c => this.room.cardToString(c));
@@ -703,7 +709,7 @@ this.room.gameRound.trumpCall = {
                                     seatIndex: player.seatIndex,
                                     availableCards
                                 });
-                            } else if (!responded.trumpCall) {
+                            } else if (!bidState.hasTrump) {
                                 const availableCards = player.handCards
                                     .filter(c => c.rank === levelRank)
                                     .map(c => this.room.cardToString(c));

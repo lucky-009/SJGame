@@ -164,8 +164,7 @@ class Game extends Component {
             showBottomReveal: false,
             bottomRevealData: null,
             showGameResult: false,
-            gameResultData: null,
-            customOrder: null // 拖拽排序自定义顺序
+            gameResultData: null
         };
     }
 
@@ -1005,13 +1004,12 @@ class Game extends Component {
      * 处理点击抄底选项（按钮）
      */
     handleDrawBottomOptionClick = (option) => {
-        const {type, cards} = option;
+        const {type, cards, chosenSuit} = option;
 
-        // 红桃5对需要先选择花色
+        // 红桃5对需要先选择花色（现在由 ActionPanel 处理）
         if (type === 'hearts5_pair') {
-            const suit = window.prompt('选择主花色 (spade/heart/club/diamond):', 'spade');
-            if (suit) {
-                this.submitDrawBottom(type, suit, cards);
+            if (chosenSuit) {
+                this.submitDrawBottom(type, chosenSuit, cards);
             }
         } else {
             this.submitDrawBottom(type, null, cards);
@@ -1434,7 +1432,7 @@ class Game extends Component {
         }
     };
 
-    /**
+/**
      * 处理选牌
      */
     handleCardClick = (card, index, isMultiSelect = false) => {
@@ -1464,17 +1462,43 @@ class Game extends Component {
      * 处理出牌
      */
     handlePlayCards = () => {
-        const {selectedCards, myHands, leadSeatIndex, leadSuit, mainSuit, currentLevel} = this.props;
+        const {selectedCards, myHands, leadSeatIndex} = this.props;
 
         if (selectedCards.length === 0) return;
 
-        // 获取排序后的手牌（与选择时的索引对应）
+        // 获取排序后的手牌
         const sortedHands = sortHandCards(myHands);
 
-        // 获取选中的牌，使用排序后的索引
+        // 获取选中的牌
         const selected = selectedCards.map(i => {
             const card = sortedHands[i];
-            // 如果是字符串，解析为对象
+            if (typeof card === 'string') {
+                return parseCardString(card);
+            }
+            return card;
+        });
+
+        const cardStrs = selected.map(c => {
+            if (typeof c === 'string') return c;
+            return `${c.suit}_${c.rank}`;
+        });
+        playCards(cardStrs);
+
+        this.props.clearSelection();
+        this.setState({error: ''});
+    };
+
+    /**
+     * 处理出牌
+     */
+    handlePlayCards = () => {
+        const {selectedCards, myHands, leadSeatIndex} = this.props;
+
+        if (selectedCards.length === 0) return;
+
+        // selectedCards 存储的是原始手牌的原始索引，直接从 myHands 取牌
+        const selected = selectedCards.map(i => {
+            const card = myHands[i];
             if (typeof card === 'string') {
                 return parseCardString(card);
             }
@@ -1720,8 +1744,6 @@ class Game extends Component {
                         buryingSelectedCards={buryingSelectedCards}
                         onCardClick={(card, index) => this.handleCardClick(card, index)}
                         onBuryCardClick={(index, cardStr) => this.handleBuryCardClick(index, cardStr)}
-                        customOrder={this.state.customOrder}
-                        onOrderChange={(order) => this.setState({ customOrder: order })}
                     />
                 </div>
 
