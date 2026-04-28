@@ -253,7 +253,7 @@ askNextPlayerDrawBottom() {
         DrawBottomLog.info('设置抄底超时', {
             roomCode: this.room.roomCode,
             seatIndex: currentSeat,
-            timeout: '8秒'
+            timeout: '10秒'
         });
 
         this.room.io.to(this.room.roomCode).emit('game:ask_draw_bottom', {

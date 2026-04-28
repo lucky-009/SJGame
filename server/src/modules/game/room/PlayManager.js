@@ -153,6 +153,7 @@ class PlayManager {
         });
 
         if (this.room.turnCards.size === 4) {
+            await new Promise(resolve => setTimeout(resolve, 1500));
             await this.room.settleManager.settleTurn();
         } else {
             this.room.turnSeat = (this.room.turnSeat + 1) % 4;
