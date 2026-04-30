@@ -124,8 +124,8 @@ export const isFixedTrump = (card, currentLevel = '2') => {
     return true;
   }
   
-  // 等级牌
-  if (card.rank === currentLevel) {
+  // 等级牌 (使用 == 宽松相等，兼容数字和字符串类型)
+  if (card.rank == currentLevel) {
     return true;
   }
   

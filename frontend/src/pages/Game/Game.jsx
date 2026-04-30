@@ -99,6 +99,7 @@ import {
     setCanLockTrump,
     setCanReverseTrump,
     setAvailableBankerCards,
+    setAvailableLockBankerCards,
     setAvailableTrumpCards,
     setAvailableReverseCards,
     setIsMyTurn,
@@ -1467,7 +1468,7 @@ class Game extends Component {
         if (selectedCards.length === 0) return;
 
         // 获取排序后的手牌
-        const sortedHands = sortHandCards(myHands);
+        const sortedHands = sortHandCards(myHands, currentLevel);
 
         // 获取选中的牌
         const selected = selectedCards.map(i => {
@@ -1704,24 +1705,26 @@ class Game extends Component {
                         selectedCards={selectedCards}
                         isMyTurn={isMyTurnProp}
                         phase={phase}
+                        currentLevel={currentLevel}
                         buryingSelectedCards={buryingSelectedCards}
                         onCardClick={(card, index) => this.handleCardClick(card, index)}
                         onBuryCardClick={(index, cardStr) => this.handleBuryCardClick(index, cardStr)}
                     />
                 </div>
 
-                <ActionPanel
-                    phase={phase}
-                    isMyTurn={isMyTurnProp}
-                    canCallBanker={this.props.canCallBanker}
-                    canCallTrump={this.props.canCallTrump}
-                    canLockBanker={this.props.canLockBanker}
-                    canReverseBanker={this.props.canReverseBanker}
-                    canLockTrump={this.props.canLockTrump}
-                    canReverseTrump={this.props.canReverseTrump}
-                    selectedCards={selectedCards}
-                    availableBankerCards={this.props.availableBankerCards}
-                    availableTrumpCards={this.props.availableTrumpCards}
+                 <ActionPanel
+                     phase={phase}
+                     isMyTurn={isMyTurnProp}
+                     canCallBanker={this.props.canCallBanker}
+                     canCallTrump={this.props.canCallTrump}
+                     canLockBanker={this.props.canLockBanker}
+                     canReverseBanker={this.props.canReverseBanker}
+                     canLockTrump={this.props.canLockTrump}
+                     canReverseTrump={this.props.canReverseTrump}
+                     selectedCards={selectedCards}
+                     availableBankerCards={this.props.availableBankerCards}
+                     availableLockBankerCards={this.props.availableLockBankerCards}
+                     availableTrumpCards={this.props.availableTrumpCards}
                     availableReverseCards={this.props.availableReverseCards}
                     drawBottom={drawBottom}
                     leadPlayCardCount={leadPlayCardCount}
@@ -1828,8 +1831,9 @@ const mapStateToProps = (state) => ({
     canReverseBanker: state.game.canReverseBanker,
     canLockTrump: state.game.canLockTrump,
     canReverseTrump: state.game.canReverseTrump,
-    availableBankerCards: state.game.availableBankerCards,
-    availableTrumpCards: state.game.availableTrumpCards,
+     availableBankerCards: state.game.availableBankerCards,
+     availableLockBankerCards: state.game.availableLockBankerCards,
+     availableTrumpCards: state.game.availableTrumpCards,
     availableReverseCards: state.game.availableReverseCards,
     reverseSuit: state.game.reverseSuit,
     // 抄底阶段
@@ -1872,6 +1876,7 @@ const mapDispatchToProps = {
     setCanLockTrump,
     setCanReverseTrump,
     setAvailableBankerCards,
+    setAvailableLockBankerCards,
     setAvailableTrumpCards,
     setAvailableReverseCards,
     setIsMyTurn,

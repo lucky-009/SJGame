@@ -34,7 +34,7 @@ export const createGameActions = (component) => ({
     const { selectedCards, myHands, leadSeatIndex, leadSuit, mainSuit, currentLevel, deskCards } = props;
     if (selectedCards.length === 0) return;
 
-    const sortedHands = sortHandCards(myHands);
+    const sortedHands = sortHandCards(myHands, currentLevel);
     const selected = selectedCards.map(i => {
       const card = sortedHands[i];
       if (typeof card === 'string') {

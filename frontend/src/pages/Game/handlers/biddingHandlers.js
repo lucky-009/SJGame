@@ -24,7 +24,7 @@ export const createBiddingHandlers = (component) => ({
     const { mySeatIndex } = props;
     props.setCanLockBanker(true);
     if (availableCards && availableCards.length > 0) {
-      props.setAvailableBankerCards(availableCards);
+      props.setAvailableLockBankerCards(availableCards);
     }
     props.setIsMyTurn(true);
     props.setTurnSeatIndex(mySeatIndex);

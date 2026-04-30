@@ -152,19 +152,20 @@ class ActionPanel extends Component {
   };
 
   render() {
-    const {
-      phase,
-      isMyTurn,
-      canCallBanker,
-      canCallTrump,
-      canLockBanker,
-      canReverseBanker,
-      canLockTrump,
-      canReverseTrump,
-      selectedCards,
-      availableBankerCards,
-      availableTrumpCards,
-      availableReverseCards,
+     const {
+       phase,
+       isMyTurn,
+       canCallBanker,
+       canCallTrump,
+       canLockBanker,
+       canReverseBanker,
+       canLockTrump,
+       canReverseTrump,
+       selectedCards,
+       availableBankerCards,
+       availableLockBankerCards,
+       availableTrumpCards,
+       availableReverseCards,
       drawBottom,
       leadPlayCardCount,
       currentAction,
@@ -217,7 +218,7 @@ class ActionPanel extends Component {
 
         {(currentAction === 'call_banker' || canCallBanker) && this.renderCardButtons(availableBankerCards, onCallBanker)}
 
-        {canLockBanker && this.renderLockBankerButtons(availableBankerCards, onLockBanker)}
+         {canLockBanker && this.renderLockBankerButtons(availableLockBankerCards, onLockBanker)}
 
         {canReverseBanker && availableReverseCards?.card && (
           <Button

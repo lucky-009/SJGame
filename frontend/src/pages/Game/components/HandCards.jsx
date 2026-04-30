@@ -9,6 +9,7 @@ const HandCards = ({
   selectedCards,
   isMyTurn,
   phase,
+  currentLevel,
   buryingSelectedCards = [],
   onCardClick,
   onBuryCardClick
@@ -17,8 +18,8 @@ const HandCards = ({
 
   const sortedHands = useMemo(() => {
     if (!myHands || !Array.isArray(myHands) || myHands.length === 0) return [];
-    return sortHandCards(myHands);
-  }, [myHands]);
+    return sortHandCards(myHands, currentLevel);
+  }, [myHands, currentLevel]);
 
   const displayHands = useMemo(() => {
     return sortedHands.map((card, index) => {

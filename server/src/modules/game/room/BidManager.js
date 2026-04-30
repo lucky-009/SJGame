@@ -343,6 +343,12 @@ class BidManager {
             return {success: false, message: '无效的牌'};
         }
 
+        // 校验：锁庄需要手牌中该花色至少有2张相同的牌
+        const sameSuitCards = player.handCards.filter(c => c.suit === card.suit && c.rank === card.rank);
+        if (sameSuitCards.length < 2) {
+            return {success: false, message: '锁庄需要手牌中有对子', code: 'BID_REJECTED'};
+        }
+
         this.room.dealingState.responded.bankerLock = true;
         this.room.dealingState.bidState.isLocked = true;
 
@@ -529,6 +535,16 @@ class BidManager {
         }
 
         const card = this.room.stringToCard(cardStr);
+        if (!card) {
+            return {success: false, message: '无效的牌'};
+        }
+
+        // 校验：锁主需要手牌中该花色至少有2张相同的牌
+        const levelRank = getLevelRank(this.room.currentLevel);
+        const sameSuitCards = player.handCards.filter(c => c.suit === card.suit && c.rank === levelRank);
+        if (sameSuitCards.length < 2) {
+            return {success: false, message: '锁主需要手牌中有对子', code: 'BID_REJECTED'};
+        }
 
         this.room.dealingState.responded.trumpLock = true;
         this.room.dealingState.bidState.isLocked = true;

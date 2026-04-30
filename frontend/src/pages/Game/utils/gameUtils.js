@@ -1,4 +1,5 @@
 import { SUIT_NAMES, RED_SUITS } from '../../../utils/constants';
+import { isFixedTrump as checkIsFixedTrump } from '../../../utils/cardUtils';
 
 /**
  * 工具函数模块
@@ -57,15 +58,39 @@ export const parseCardString = (cardStr) => {
   };
 };
 
+const compareFixedTrump = (a, b) => {
+  const FIXED_TRUMP_ORDER = {
+    'heart_5': 0,
+    'joker_big': 1,
+    'joker_small': 2
+  };
+
+  const keyA = a.suit === 'joker' ? `joker_${a.rank}` : `${a.suit}_${a.rank}`;
+  const keyB = b.suit === 'joker' ? `joker_${b.rank}` : `${b.suit}_${b.rank}`;
+
+  const orderA = FIXED_TRUMP_ORDER[keyA] ?? 3;
+  const orderB = FIXED_TRUMP_ORDER[keyB] ?? 3;
+
+  if (orderA !== orderB) {
+    return orderA - orderB;
+  }
+
+  return (RANK_ORDER[b.rank] ?? 0) - (RANK_ORDER[a.rank] ?? 0);
+};
+
 /**
  * 按花色排序手牌
- * 排序顺序: 方片(♦) -> 梅花(♣) -> 红桃(♥) -> 黑桃(♠) -> 大王 -> 小王
- * 每种花色内按点数: 2-10,J,Q,K,A
+ * 排序顺序: 方片(♦) -> 梅花(♣) -> 红桃(♥) -> 黑桃(♠) -> 固定主
+ * 固定主单独放到最右边，内部排序: 红桃5 > 大王 > 小王 > 等级固定主
+ * @param {Array} hands - 手牌数组
+ * @param {string} currentLevel - 当前等级
  */
-export const sortHandCards = (hands) => {
+export const sortHandCards = (hands, currentLevel = '2') => {
   if (!hands || !Array.isArray(hands)) return [];
 
-  return [...hands].sort((a, b) => {
+  const isFixedTrump = (card) => checkIsFixedTrump(card, currentLevel);
+
+  const sorted = [...hands].sort((a, b) => {
     const cardA = typeof a === 'string' ? parseCardString(a) : a;
     const cardB = typeof b === 'string' ? parseCardString(b) : b;
 
@@ -81,6 +106,18 @@ export const sortHandCards = (hands) => {
 
     return rankA - rankB;
   });
+
+  const normalCards = sorted.filter(card => {
+    const parsed = typeof card === 'string' ? parseCardString(card) : card;
+    return !isFixedTrump(parsed);
+  });
+
+  const fixedTrumps = sorted.filter(card => {
+    const parsed = typeof card === 'string' ? parseCardString(card) : card;
+    return isFixedTrump(parsed);
+  }).sort(compareFixedTrump);
+
+  return [...normalCards, ...fixedTrumps];
 };
 
 /**

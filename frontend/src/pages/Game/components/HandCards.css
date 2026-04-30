@@ -1,0 +1,38 @@
+.hand-cards {
+  display: flex;
+  justify-content: center;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 15px 20px;
+}
+
+.hand-cards .card,
+.card-wrapper {
+  margin-left: -40px;
+  flex-shrink: 0;
+}
+
+.hand-cards .card:first-child,
+.card-wrapper:first-child {
+  margin-left: 0;
+}
+
+.card-wrapper {
+  cursor: pointer;
+}
+
+.card-wrapper.selected .card {
+  transform: translateY(-10px);
+}
+
+@media (max-width: 768px) {
+  .hand-cards {
+    padding: 10px 15px;
+  }
+
+  .hand-cards .card,
+  .card-wrapper {
+    margin-left: -35px;
+  }
+}

@@ -5,6 +5,7 @@
 
 import { createSlice } from '@reduxjs/toolkit';
 import { GAME_PHASES, TEAMS, SUITS } from '../utils/constants';
+import { sortHandCards } from '../pages/Game/utils/gameUtils';
 
 const initialState = {
   // 游戏阶段
@@ -89,9 +90,10 @@ const initialState = {
   canLockTrump: false,     // 是否可以锁主
   canReverseTrump: false,  // 是否可以反主
 
-  // 新增：可用于抢庄/抢主的卡片列表
-  availableBankerCards: [],  // 可用于抢庄的卡片列表
-  availableTrumpCards: [],  // 可用于抢主的卡片列表
+   // 新增：可用于抢庄/抢主的卡片列表
+   availableBankerCards: [],  // 可用于抢庄的卡片列表
+   availableLockBankerCards: [], // 可用于锁庄的卡片列表
+   availableTrumpCards: [],  // 可用于抢主的卡片列表
   availableReverseCards: null, // 可用于反庄/反主的卡片信息 { type, suit, cards }
   reverseType: null,        // 反庄/反主类型
   reverseSuit: null,          // 反庄时的花色
@@ -204,7 +206,9 @@ const gameSlice = createSlice({
      * 设置手牌
      */
     setMyHands: (state, action) => {
-      state.myHands = action.payload;
+      const unsorted = action.payload;
+      const level = state.currentLevel || '2';
+      state.myHands = sortHandCards(unsorted, level);
     },
 
     /**
@@ -447,13 +451,19 @@ const gameSlice = createSlice({
       state.gameResult = null;
       state.dealProgress = { isDealing: false, current: 0, total: 100 };
       state.bidState = { hasBanker: false, bankerSeat: -1, hasTrump: false, trumpSuit: null, isLocked: false };
-      state.canCallBanker = false;
-      state.canCallTrump = false;
-      state.canLockBanker = false;
-      state.canReverseBanker = false;
-      state.canLockTrump = false;
-      state.canReverseTrump = false;
-    },
+       state.canCallBanker = false;
+       state.canCallTrump = false;
+       state.canLockBanker = false;
+       state.canReverseBanker = false;
+       state.canLockTrump = false;
+       state.canReverseTrump = false;
+       state.availableBankerCards = [];
+       state.availableLockBankerCards = [];
+       state.availableTrumpCards = [];
+       state.availableReverseCards = [];
+       state.reverseType = null;
+       state.reverseSuit = null;
+     },
 
     /**
      * 设置发牌进度
@@ -500,13 +510,17 @@ const gameSlice = createSlice({
     /**
      * 设置可用于抢庄的卡片列表
      */
-    setAvailableBankerCards: (state, action) => {
-      state.availableBankerCards = action.payload;
-    },
+     setAvailableBankerCards: (state, action) => {
+       state.availableBankerCards = action.payload;
+     },
 
-    /**
-     * 设置可用于抢主的卡片列表
-     */
+     setAvailableLockBankerCards: (state, action) => {
+       state.availableLockBankerCards = action.payload;
+     },
+
+     /**
+      * 设置可用于抢主的卡片列表
+      */
     setAvailableTrumpCards: (state, action) => {
       state.availableTrumpCards = action.payload;
     },
@@ -523,19 +537,20 @@ const gameSlice = createSlice({
     /**
      * 清除所有发牌过程操作权限
      */
-    clearDealingActions: (state) => {
-      state.canCallBanker = false;
-      state.canCallTrump = false;
-      state.canLockBanker = false;
-      state.canReverseBanker = false;
-      state.canLockTrump = false;
-      state.canReverseTrump = false;
-      state.availableBankerCards = [];
-      state.availableTrumpCards = [];
-      state.availableReverseCards = [];
-      state.reverseType = null;
-      state.reverseSuit = null;
-    },
+     clearDealingActions: (state) => {
+       state.canCallBanker = false;
+       state.canCallTrump = false;
+       state.canLockBanker = false;
+       state.canReverseBanker = false;
+       state.canLockTrump = false;
+       state.canReverseTrump = false;
+       state.availableBankerCards = [];
+       state.availableLockBankerCards = [];
+       state.availableTrumpCards = [];
+       state.availableReverseCards = [];
+       state.reverseType = null;
+       state.reverseSuit = null;
+     },
 
     /**
      * 设置抄底阶段状态
@@ -620,9 +635,10 @@ export const {
   setCanReverseBanker,
   setCanLockTrump,
   setCanReverseTrump,
-  setAvailableBankerCards,
-  setAvailableTrumpCards,
-  setAvailableReverseCards,
+   setAvailableBankerCards,
+   setAvailableLockBankerCards,
+   setAvailableTrumpCards,
+   setAvailableReverseCards,
   clearDealingActions,
   setDrawBottomState,
   clearDrawBottomState,
