@@ -29,7 +29,7 @@ export const createDrawBottomHandlers = (component) => ({
   handleDrawBottomSuccess: (data) => {
     console.log('✅ 抄底成功:', data);
     const { props } = component;
-    const { seatIndex, drawType, drawCards, mainSuit, isNoTrump, addedCards, totalCards, remainingCards } = data;
+    const { seatIndex, drawType, drawCards, mainSuit, isNoTrump, trumpCallerSeat, addedCards, totalCards, remainingCards } = data;
 
     component.clearDrawBottomTimer();
 
@@ -38,6 +38,7 @@ export const createDrawBottomHandlers = (component) => ({
       ...props.bidState,
       hasTrump: true,
       trumpSuit: mainSuit,
+      trumpCallerSeat: trumpCallerSeat !== undefined ? trumpCallerSeat : seatIndex,
       isLocked: true
     });
 
@@ -100,7 +101,7 @@ export const createDrawBottomHandlers = (component) => ({
   handleDrawBottomComplete: (data) => {
     console.log('🏁 抄底阶段完成:', data);
     const { props } = component;
-    const { finalMainSuit, isNoTrump, hasDrawer, remainingCards } = data;
+    const { finalMainSuit, isNoTrump, hasDrawer, remainingCards, trumpCallerSeat } = data;
 
     props.clearDrawBottomState();
 
@@ -109,6 +110,7 @@ export const createDrawBottomHandlers = (component) => ({
       ...props.bidState,
       hasTrump: true,
       trumpSuit: finalMainSuit,
+      trumpCallerSeat: trumpCallerSeat !== undefined ? trumpCallerSeat : props.bidState.trumpCallerSeat,
       isNoTrump: isNoTrump
     });
 

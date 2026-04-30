@@ -2,8 +2,8 @@
  * 底牌管理器 - 处理补底、抄底、埋底逻辑
  */
 
-const { DRAW_PRIORITY, SUIT_LABELS } = require('./constants');
-const { getLevelRank } = require('../../../common/CardUtils');
+const {DRAW_PRIORITY, SUIT_LABELS} = require('./constants');
+const {getLevelRank} = require('../../../common/CardUtils');
 
 const DRAW_TYPE_LABELS = {
     'hearts5_pair': '红桃5对',
@@ -66,7 +66,6 @@ class BottomManager {
             lastDrawType: null
         };
     }
-
 
 
     notifyTakeBottom() {
@@ -194,8 +193,8 @@ class BottomManager {
         return SUIT_LABELS[suit] || suit;
     }
 
-askNextPlayerDrawBottom() {
-        const { abandonedPlayers } = this.room.drawBottomState;
+    askNextPlayerDrawBottom() {
+        const {abandonedPlayers} = this.room.drawBottomState;
 
         let currentSeat = this.room.drawBottomState.currentAskerSeat;
         let iterations = 0;
@@ -265,12 +264,12 @@ askNextPlayerDrawBottom() {
             currentLevel: this.room.currentLevel
         });
 
-        if (this.room.drawBottomState.drawTimeout) {
-            clearTimeout(this.room.drawBottomState.drawTimeout);
-        }
-        this.room.drawBottomState.drawTimeout = setTimeout(() => {
-            this.handleDrawBottomTimeout();
-        }, 8000);
+        // if (this.room.drawBottomState.drawTimeout) {
+        //     clearTimeout(this.room.drawBottomState.drawTimeout);
+        // }
+        // this.room.drawBottomState.drawTimeout = setTimeout(() => {
+        //     this.handleDrawBottomTimeout();
+        // }, 8000);
     }
 
     handleDrawBottomTimeout() {
@@ -300,10 +299,10 @@ askNextPlayerDrawBottom() {
                 roomCode: this.room.roomCode,
                 seatIndex: player?.seatIndex
             });
-            return { success: false, message: '当前不是您的操作回合' };
+            return {success: false, message: '当前不是您的操作回合'};
         }
 
-        const { drawType, chosenSuit, cards } = data;
+        const {drawType, chosenSuit, cards} = data;
 
         const validation = this.validateDrawBottomCards(cards, drawType);
         if (!validation.valid) {
@@ -313,7 +312,7 @@ askNextPlayerDrawBottom() {
                 drawType: drawType,
                 reason: validation.message
             });
-            return { success: false, message: validation.message };
+            return {success: false, message: validation.message};
         }
 
         DrawBottomLog.info('玩家选择抄底', {
@@ -326,7 +325,7 @@ askNextPlayerDrawBottom() {
         const bottomCards = this.room.gameRound.bottomCards.map(c => this.room.stringToCard(c));
         player.handCards.push(...bottomCards);
 
-        const { newSuit, isNoTrump } = this.calculateNewMainSuit(drawType, chosenSuit, cards);
+        const {newSuit, isNoTrump} = this.calculateNewMainSuit(drawType, chosenSuit, cards);
 
         DrawBottomLog.info('抄底成功，更新主花色', {
             roomCode: this.room.roomCode,
@@ -364,6 +363,7 @@ askNextPlayerDrawBottom() {
             drawCards: cards,
             mainSuit: newSuit,
             isNoTrump: isNoTrump,
+            trumpCallerSeat: player.seatIndex,
             addedCards: bottomCards.map(c => this.room.cardToString(c)),
             totalCards: player.handCards.length
         });
@@ -394,55 +394,55 @@ askNextPlayerDrawBottom() {
             drawInfo: drawInfo
         });
 
-        return { success: true };
+        return {success: true};
     }
 
     validateDrawBottomCards(cards, drawType) {
         if (!cards || cards.length !== 2) {
-            return { valid: false, message: '需要2张牌' };
+            return {valid: false, message: '需要2张牌'};
         }
 
         const c1 = this.room.stringToCard(cards[0]);
         const c2 = this.room.stringToCard(cards[1]);
 
         if (!c1 || !c2) {
-            return { valid: false, message: '无效的牌' };
+            return {valid: false, message: '无效的牌'};
         }
 
         switch (drawType) {
             case 'big_joker_pair':
                 if (c1.rank !== 'big' || c2.rank !== 'big') {
-                    return { valid: false, message: '必须是两张大王' };
+                    return {valid: false, message: '必须是两张大王'};
                 }
                 break;
 
             case 'small_joker_pair':
                 if (c1.rank !== 'small' || c2.rank !== 'small') {
-                    return { valid: false, message: '必须是两张小王' };
+                    return {valid: false, message: '必须是两张小王'};
                 }
                 break;
 
             case 'hearts5_pair':
                 if (c1.suit !== 'heart' || c2.suit !== 'heart' || c1.rank !== '5' || c2.rank !== '5') {
-                    return { valid: false, message: '必须是红桃5对' };
+                    return {valid: false, message: '必须是红桃5对'};
                 }
                 break;
 
             case 'trump_pair':
                 if (c1.suit !== c2.suit || c1.rank !== c2.rank) {
-                    return { valid: false, message: '必须是同花色对子' };
+                    return {valid: false, message: '必须是同花色对子'};
                 }
 
                 const card = c1;
                 const currentLevelRank = getLevelRank(this.room.currentLevel);
                 if (card.rank === currentLevelRank) {
                 } else {
-                    return { valid: false, message: `必须是红桃5对、大王对、小王对或同花色对${this.room.currentLevel}` };
+                    return {valid: false, message: `必须是红桃5对、大王对、小王对或同花色对${this.room.currentLevel}`};
                 }
                 break;
 
             default:
-                return { valid: false, message: '无效的抄底类型' };
+                return {valid: false, message: '无效的抄底类型'};
         }
 
         const lastDrawType = this.room.drawBottomState.lastDrawType;
@@ -451,30 +451,30 @@ askNextPlayerDrawBottom() {
             const lastIdx = DRAW_PRIORITY.indexOf(lastDrawType);
 
             if (currentIdx >= lastIdx) {
-                return { valid: false, message: '抄底的牌型必须大于上一次抄底的牌型' };
+                return {valid: false, message: '抄底的牌型必须大于上一次抄底的牌型'};
             }
         }
 
-        return { valid: true };
+        return {valid: true};
     }
 
     calculateNewMainSuit(drawType, chosenSuit, cards) {
         switch (drawType) {
             case 'big_joker_pair':
-                return { newSuit: null, isNoTrump: true };
+                return {newSuit: null, isNoTrump: true};
 
             case 'small_joker_pair':
-                return { newSuit: null, isNoTrump: true };
+                return {newSuit: null, isNoTrump: true};
 
             case 'hearts5_pair':
-                return { newSuit: chosenSuit, isNoTrump: false };
+                return {newSuit: chosenSuit, isNoTrump: false};
 
             case 'trump_pair':
                 const card = this.room.stringToCard(cards[0]);
-                return { newSuit: card.suit, isNoTrump: false };
+                return {newSuit: card.suit, isNoTrump: false};
 
             default:
-                return { newSuit: this.room.gameRound.trumpSuit, isNoTrump: this.room.gameRound.isNoTrump };
+                return {newSuit: this.room.gameRound.trumpSuit, isNoTrump: this.room.gameRound.isNoTrump};
         }
     }
 
@@ -529,7 +529,7 @@ askNextPlayerDrawBottom() {
                 roomCode: this.room.roomCode,
                 seatIndex: player?.seatIndex
             });
-            return { success: false, message: '当前不是您的操作回合' };
+            return {success: false, message: '当前不是您的操作回合'};
         }
 
         if (this.room.drawBottomState.drawTimeout) {
@@ -549,7 +549,7 @@ askNextPlayerDrawBottom() {
         this.room.drawBottomState.abandonedPlayers.push(this.room.drawBottomState.currentAskerSeat);
         this.askNextPlayerDrawBottom();
 
-        return { success: true };
+        return {success: true};
     }
 
     async handleBuryBottom(userId, buryCards) {
@@ -559,7 +559,7 @@ askNextPlayerDrawBottom() {
                 roomCode: this.room.roomCode,
                 seatIndex: player?.seatIndex
             });
-            return { success: false, message: '当前不是您的操作回合' };
+            return {success: false, message: '当前不是您的操作回合'};
         }
 
         if (buryCards.length !== 8) {
@@ -568,7 +568,7 @@ askNextPlayerDrawBottom() {
                 seatIndex: player.seatIndex,
                 buryCount: buryCards.length
             });
-            return { success: false, message: '必须埋8张底牌' };
+            return {success: false, message: '必须埋8张底牌'};
         }
 
         DrawBottomLog.info('玩家埋底', {
@@ -614,7 +614,7 @@ askNextPlayerDrawBottom() {
             this.startDrawBottom();
         }
 
-        return { success: true };
+        return {success: true};
     }
 }
 
