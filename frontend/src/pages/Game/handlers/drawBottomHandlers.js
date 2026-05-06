@@ -23,7 +23,8 @@ export const createDrawBottomHandlers = (component) => ({
       drawableOptions: drawableOptions
     });
 
-    component.startDrawBottomTimer(timeout);
+    // 启动倒计时（与Game.jsx一致，暂时注释）
+    // component.startDrawBottomTimer(timeout);
   },
 
   handleDrawBottomSuccess: (data) => {
@@ -157,6 +158,34 @@ export const createDrawBottomHandlers = (component) => ({
     const { props } = component;
     const { playerCardCounts } = data;
     updatePlayersCardCount(props, playerCardCounts);
+  },
+
+  handleDrawBottomOptionClick: (option) => {
+    const { type, cards, chosenSuit } = option;
+    if (type === 'hearts5_pair') {
+      if (chosenSuit) {
+        component.submitDrawBottom(type, chosenSuit, cards);
+      }
+    } else {
+      component.submitDrawBottom(type, null, cards);
+    }
+  },
+
+  submitDrawBottom: (drawType, chosenSuit, cards) => {
+    takeBottom(drawType, chosenSuit, cards).then(() => {
+      component.props.setDrawBottomState({
+        canDraw: false,
+        isMyTurn: false
+      });
+    }).catch(err => {
+      component.setState({
+        error: err.message
+      });
+    });
+  },
+
+  handleSkipDrawBottom: () => {
+    skipDrawBottom();
   },
 
 });
